@@ -6,7 +6,7 @@ class Todos {
   }
 
   start() {
-    this.createMainMarcup();
+    this.domRefs = this.createMainMarcup();
     this.render();
   }
 
@@ -163,6 +163,7 @@ class Todos {
     container.appendChild(form);
 
     this.rootElement.appendChild(container);
+    return container;
   }
 
   getTodos() {
@@ -292,12 +293,22 @@ class Elements {
     button.dataset.index = id;
     button.addEventListener("click", onDel);
 
+    const label = document.createElement("label");
+    label.classList.add("fieldStatus");
+
     const checkbox = document.createElement("input");
     checkbox.classList.add("checkbox");
     checkbox.setAttribute("type", "checkbox");
+    checkbox.setAttribute("name", "status");
     checkbox.dataset.index = id;
     completed && checkbox.setAttribute("checked", true);
     checkbox.addEventListener("click", onCheckbox);
+
+    const spanForCheckbox = document.createElement("span");
+    spanForCheckbox.classList.add("checkboxIcon");
+
+    label.appendChild(checkbox);
+    label.appendChild(spanForCheckbox);
 
     const input = document.createElement("input");
     input.classList.add("updateTodoInput");
@@ -309,7 +320,7 @@ class Elements {
     input.addEventListener("blur", onBlur);
     input.addEventListener("keydown", onKeyDown);
 
-    li.prepend(checkbox);
+    li.prepend(label);
     li.appendChild(input);
     li.appendChild(button);
 
