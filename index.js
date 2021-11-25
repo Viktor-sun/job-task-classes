@@ -91,6 +91,29 @@ class Todos {
     this.render();
   };
 
+  onShowUpdateInput = (e) => {
+    e.target.classList.remove("isHidden");
+  };
+
+  onUpdateTodo = (e) => {
+    const index = e.target.dataset.index;
+    const newTodo = e.target.value.trim();
+    if (newTodo === "") return;
+
+    const todos = JSON.parse(localStorage.getItem("todos")) || [];
+    const updateTodo = todos.map((todo) => {
+      if (todo.id === Number(index)) {
+        todo.todo = newTodo;
+      }
+      return todo;
+    });
+
+    localStorage.setItem("todos", JSON.stringify(updateTodo));
+    this.render();
+
+    e.target.classList.add("isHidden");
+  };
+
   changeCounter() {
     const todos = JSON.parse(localStorage.getItem("todos")) || [];
     const activeElements = todos.filter(({ completed }) => !completed).length;
@@ -171,6 +194,7 @@ class Todos {
     const todos = this.getTodos();
     const rootElement = document.querySelector(".todos");
     rootElement.innerHTML = "";
+
     const arrElements = todos.map(({ id, todo, completed }) =>
       this.elements.createTodoItem(
         {
@@ -178,8 +202,12 @@ class Todos {
           todo,
           completed,
         },
-        this.onDel,
-        this.onCheckbox
+        {
+          onDel: this.onDel,
+          onCheckbox: this.onCheckbox,
+          onShowUpdateInput: this.onShowUpdateInput,
+          onUpdateTodo: this.onUpdateTodo,
+        }
       )
     );
     rootElement.append(...arrElements);
@@ -239,7 +267,10 @@ class Elements {
     return ul;
   }
 
-  createTodoItem({ id, todo, completed }, onDel, onCheckbox) {
+  createTodoItem(
+    { id, todo, completed },
+    { onDel, onCheckbox, onShowUpdateInput, onUpdateTodo }
+  ) {
     const li = document.createElement("li");
     li.classList.add("todoItem");
     li.textContent = todo;
@@ -257,7 +288,17 @@ class Elements {
     completed && checkbox.setAttribute("checked", true);
     checkbox.addEventListener("click", onCheckbox);
 
+    const input = document.createElement("input");
+    input.classList.add("updateTodoInput");
+    input.classList.add("isHidden");
+    input.value = todo;
+    input.dataset.index = id;
+    input.setAttribute("type", "text");
+    input.addEventListener("dblclick", onShowUpdateInput);
+    input.addEventListener("blur", onUpdateTodo);
+
     li.prepend(checkbox);
+    li.appendChild(input);
     li.appendChild(button);
 
     return li;
