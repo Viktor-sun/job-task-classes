@@ -95,7 +95,17 @@ class Todos {
     e.target.classList.remove("isHidden");
   };
 
-  onUpdateTodo = (e) => {
+  onBlur = (e) => {
+    this.updateTodo(e);
+  };
+
+  onKeyDown = (e) => {
+    if (e.code === "Enter") {
+      this.updateTodo(e);
+    }
+  };
+
+  updateTodo(e) {
     const index = e.target.dataset.index;
     const newTodo = e.target.value.trim();
     if (newTodo === "") return;
@@ -112,7 +122,7 @@ class Todos {
     this.render();
 
     e.target.classList.add("isHidden");
-  };
+  }
 
   changeCounter() {
     const todos = JSON.parse(localStorage.getItem("todos")) || [];
@@ -206,7 +216,8 @@ class Todos {
           onDel: this.onDel,
           onCheckbox: this.onCheckbox,
           onShowUpdateInput: this.onShowUpdateInput,
-          onUpdateTodo: this.onUpdateTodo,
+          onBlur: this.onBlur,
+          onKeyDown: this.onKeyDown,
         }
       )
     );
@@ -269,7 +280,7 @@ class Elements {
 
   createTodoItem(
     { id, todo, completed },
-    { onDel, onCheckbox, onShowUpdateInput, onUpdateTodo }
+    { onDel, onCheckbox, onShowUpdateInput, onBlur, onKeyDown }
   ) {
     const li = document.createElement("li");
     li.classList.add("todoItem");
@@ -277,7 +288,7 @@ class Elements {
     li.dataset.index = id;
 
     const button = document.createElement("button");
-    button.textContent = "del";
+    button.classList.add("btnDel");
     button.dataset.index = id;
     button.addEventListener("click", onDel);
 
@@ -295,7 +306,8 @@ class Elements {
     input.dataset.index = id;
     input.setAttribute("type", "text");
     input.addEventListener("dblclick", onShowUpdateInput);
-    input.addEventListener("blur", onUpdateTodo);
+    input.addEventListener("blur", onBlur);
+    input.addEventListener("keydown", onKeyDown);
 
     li.prepend(checkbox);
     li.appendChild(input);
