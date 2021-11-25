@@ -1,125 +1,40 @@
-class Main {
+class Todos {
+  elements = new Elements();
+
   constructor(rootRef) {
     this.rootElement = rootRef;
   }
 
-  render() {
-    this.rootElement.appendChild(this.createMainMarcup());
-  }
-
-  createMainMarcup() {
-    const container = document.createElement("div");
-    container.classList.add("container");
-
-    const h1 = document.createElement("h1");
-    h1.textContent = "todos";
-    h1.classList.add("title");
-
-    const form = this.createForm();
-
-    container.appendChild(h1);
-    container.appendChild(form);
-
-    return container;
-  }
-
-  createForm() {
-    const formContainer = document.createElement("div");
-    formContainer.classList.add("formContainer");
-
-    const form = document.createElement("form");
-    form.classList.add("form");
-
-    const input = document.createElement("input");
-    input.setAttribute("type", "text");
-    input.setAttribute("id", "input");
-    input.setAttribute("autocomplete", "off");
-    input.setAttribute("placeholder", "What needs to be done?");
-    input.setAttribute("autofocus", true);
-    input.classList.add("input");
-
-    const buttonSelectAll = document.createElement("button");
-    buttonSelectAll.setAttribute("type", "button");
-    buttonSelectAll.textContent = "❯";
-    buttonSelectAll.classList.add("btnSelectAll");
-
-    form.appendChild(buttonSelectAll);
-    form.appendChild(input);
-
-    formContainer.appendChild(form);
-
-    return formContainer;
-  }
-}
-
-class Todos {
-  constructor(parentRef, formRef) {
-    this.rootElement = parentRef;
-    this.formRef = formRef;
-  }
-
   start() {
-    this.rootElement.insertAdjacentHTML(
-      "beforeend",
-      "<ul class='todos'>asf</ul>"
-    );
-    this.setEventListenerOnForm();
+    this.createMainMarcup();
     this.render();
-    // this.renderButton();
   }
 
-  setEventListenerOnForm() {
-    formRef.addEventListener("submit", (e) => {
-      e.preventDefault();
+  onForm = (e) => {
+    e.preventDefault();
+    const todo = e.target.input.value.trim();
+    if (todo === "") return;
 
-      const todo = e.target.input.value.trim();
-      if (todo === "") return;
+    const todos = JSON.parse(localStorage.getItem("todos")) || [];
 
-      const todos = JSON.parse(localStorage.getItem("todos")) || [];
+    const id = todos[todos.length - 1]?.id + 1 || 0;
+    todos.push({ id, todo: todo, completed: false });
+    localStorage.setItem("todos", JSON.stringify(todos));
+    this.render();
 
-      const id = todos[todos.length - 1]?.id + 1 || 0;
-      todos.push({ id, todo: todo, completed: false });
-      localStorage.setItem("todos", JSON.stringify(todos));
-      this.render();
+    e.currentTarget.reset();
+  };
 
-      e.currentTarget.reset();
-    });
-  }
-
-  createTodo(id, todo, completed) {
-    const li = document.createElement("li");
-    li.classList.add("item");
-    li.textContent = todo;
-    li.dataset.index = id;
-
-    const button = document.createElement("button");
-    button.textContent = "del";
-    button.dataset.index = id;
-    button.addEventListener("click", this.handleOnDel.bind(this));
-
-    const checkbox = document.createElement("input");
-    checkbox.classList.add("checkbox");
-    checkbox.setAttribute("type", "checkbox");
-    checkbox.dataset.index = id;
-    completed && checkbox.setAttribute("checked", true);
-    checkbox.addEventListener("click", this.handleOnCheckbox.bind(this));
-
-    li.prepend(checkbox);
-    li.appendChild(button);
-
-    return li;
-  }
-
-  handleOnDel(e) {
+  onDel = (e) => {
     const liIndex = e.target.dataset.index;
 
     const todos = JSON.parse(localStorage.getItem("todos")) || [];
     const filteredTodo = todos.filter((todo) => todo.id !== Number(liIndex));
     localStorage.setItem("todos", JSON.stringify(filteredTodo));
     this.render();
-  }
+  };
 
-  handleOnCheckbox(e) {
+  onCheckbox = (e) => {
     const checkboxIndex = e.target.dataset.index;
 
     const todos = JSON.parse(localStorage.getItem("todos")) || [];
@@ -132,26 +47,90 @@ class Todos {
     localStorage.setItem("todos", JSON.stringify(todos));
 
     this.render();
+  };
+
+  onSelectAll = () => {
+    const todos = JSON.parse(localStorage.getItem("todos")) || [];
+    const stateButtonSelectAll = localStorage.getItem("stateButtonSelectAll");
+
+    if (stateButtonSelectAll === "yes") {
+      todos.map((todo) => {
+        todo.completed = false;
+      });
+
+      localStorage.setItem("stateButtonSelectAll", "no");
+    } else {
+      todos.map((todo) => (todo.completed = true));
+
+      localStorage.setItem("stateButtonSelectAll", "yes");
+    }
+
+    localStorage.setItem("todos", JSON.stringify(todos));
+    this.render();
+  };
+
+  onButtonAll = () => {
+    localStorage.setItem("filtrationState", "all");
+    this.render();
+  };
+
+  onButtonActive = () => {
+    localStorage.setItem("filtrationState", "active");
+    this.render();
+  };
+
+  onButtonCompleted = () => {
+    localStorage.setItem("filtrationState", "completed");
+    this.render();
+  };
+
+  onClearCompleted = () => {
+    const todos = JSON.parse(localStorage.getItem("todos")) || [];
+    const activeTodo = todos.filter((todo) => !todo.completed);
+    localStorage.setItem("todos", JSON.stringify(activeTodo));
+    this.render();
+  };
+
+  changeCounter() {
+    const todos = JSON.parse(localStorage.getItem("todos")) || [];
+    const activeElements = todos.filter(({ completed }) => !completed).length;
+
+    const counter = document.querySelector(".todoCounter");
+    counter.textContent = `item left: ${activeElements}`;
   }
 
-  //   renderButton() {
-  //     const ul = document.createElement("ul");
-  //     ul.classList.add("sortButtonList");
+  showBtnClear(todos) {
+    const buttonClear = document.querySelector(".btnClear");
+    const hasCompletedTodo = todos.some((todo) => todo.completed);
+    if (hasCompletedTodo) {
+      buttonClear.classList.remove("isHidden");
+    } else {
+      buttonClear.classList.add("isHidden");
+    }
+  }
 
-  //     ["buttonAll", "butttonActive", "buttonCompleted"].map((id) => {
-  //       const li = document.createElement("li");
-  //       const button = document.createElement("button");
-  //       button.setAttribute("type", "button");
-  //       button.setAttribute("id", id);
-  //       button.classList.add("sortButton");
-  //     });
-  //     const li = document.createElement("li");
+  createMainMarcup() {
+    const container = this.elements.createContainer();
+    const title = this.elements.createTitle();
+    const form = this.elements.createForm(this.onForm, this.onSelectAll);
+    const todoList = this.elements.createTodoList();
+    const counterUnfulfilledTodo = this.elements.createCounterUnfulfilledTodo();
+    const btnClear = this.elements.createBtnClear(this.onClearCompleted);
+    const sortButtonList = this.elements.createSortButtonList(
+      this.onButtonAll,
+      this.onButtonActive,
+      this.onButtonCompleted
+    );
 
-  //     this.rootElement.insertAdjacentElement(
-  //       "beforeend",
-  //       document.createElement("button")
-  //     );
-  //   }
+    form.insertAdjacentElement("beforeend", todoList);
+    form.appendChild(counterUnfulfilledTodo);
+    form.appendChild(sortButtonList);
+    form.appendChild(btnClear);
+    container.appendChild(title);
+    container.appendChild(form);
+
+    this.rootElement.appendChild(container);
+  }
 
   getTodos() {
     let todos = JSON.parse(localStorage.getItem("todos")) || [];
@@ -190,30 +169,140 @@ class Todos {
 
   render() {
     const todos = this.getTodos();
-
     const rootElement = document.querySelector(".todos");
-
     rootElement.innerHTML = "";
     const arrElements = todos.map(({ id, todo, completed }) =>
-      this.createTodo(id, todo, completed)
+      this.elements.createTodoItem(
+        {
+          id,
+          todo,
+          completed,
+        },
+        this.onDel,
+        this.onCheckbox
+      )
     );
     rootElement.append(...arrElements);
-    // this.changeItemLeft();
-
-    // const hasCompletedTodo = todos.some((todo) => todo.completed);
-    // if (hasCompletedTodo) {
-    //   buttonClear.classList.remove("isHidden");
-    // } else {
-    //   buttonClear.classList.add("isHidden");
-    // }
+    this.changeCounter();
+    this.showBtnClear(todos);
   }
 }
 
-const main = new Main(document.getElementById("root"));
-main.render();
+// ===================================
+class Elements {
+  createContainer() {
+    const container = document.createElement("div");
+    container.classList.add("container");
+    return container;
+  }
 
-const formContainerRef = document.querySelector(".formContainer");
-const formRef = document.querySelector(".form");
+  createTitle() {
+    const h1 = document.createElement("h1");
+    h1.textContent = "todos";
+    h1.classList.add("title");
+    return h1;
+  }
 
-const todos = new Todos(formContainerRef, formRef);
+  createForm(onForm, onSelectAll) {
+    const formContainer = document.createElement("div");
+    formContainer.classList.add("formContainer");
+
+    const form = document.createElement("form");
+    form.classList.add("form");
+    form.addEventListener("submit", onForm);
+
+    const input = document.createElement("input");
+    input.setAttribute("type", "text");
+    input.setAttribute("id", "input");
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("placeholder", "What needs to be done?");
+    input.setAttribute("autofocus", true);
+    input.classList.add("input");
+
+    const buttonSelectAll = document.createElement("button");
+    buttonSelectAll.setAttribute("type", "button");
+    buttonSelectAll.textContent = "❯";
+    buttonSelectAll.classList.add("btnSelectAll");
+    buttonSelectAll.addEventListener("click", onSelectAll);
+
+    form.appendChild(buttonSelectAll);
+    form.appendChild(input);
+
+    formContainer.appendChild(form);
+
+    return formContainer;
+  }
+
+  createTodoList() {
+    const ul = document.createElement("ul");
+    ul.classList.add("todos");
+    return ul;
+  }
+
+  createTodoItem({ id, todo, completed }, onDel, onCheckbox) {
+    const li = document.createElement("li");
+    li.classList.add("todoItem");
+    li.textContent = todo;
+    li.dataset.index = id;
+
+    const button = document.createElement("button");
+    button.textContent = "del";
+    button.dataset.index = id;
+    button.addEventListener("click", onDel);
+
+    const checkbox = document.createElement("input");
+    checkbox.classList.add("checkbox");
+    checkbox.setAttribute("type", "checkbox");
+    checkbox.dataset.index = id;
+    completed && checkbox.setAttribute("checked", true);
+    checkbox.addEventListener("click", onCheckbox);
+
+    li.prepend(checkbox);
+    li.appendChild(button);
+
+    return li;
+  }
+
+  createCounterUnfulfilledTodo() {
+    const counter = document.createElement("span");
+    counter.classList.add("todoCounter");
+    counter.textContent = "item left: 0";
+    return counter;
+  }
+
+  createBtnClear(onClear) {
+    const btn = document.createElement("button");
+    btn.classList.add("btnClear");
+    btn.textContent = "Clear completed";
+    btn.addEventListener("click", onClear);
+    return btn;
+  }
+
+  createSortButtonList(onAll, onActive, onCompleted) {
+    const btnItems = [
+      { id: "buttonAll", name: "All", handler: onAll },
+      { id: "butttonActive", name: "Active", handler: onActive },
+      { id: "buttonCompleted", name: "Completed", handler: onCompleted },
+    ].map(({ id, name, handler }) => {
+      const li = document.createElement("li");
+
+      const button = document.createElement("button");
+      button.setAttribute("type", "button");
+      button.setAttribute("id", id);
+      button.textContent = name;
+      button.classList.add("sortButton");
+      button.addEventListener("click", handler);
+
+      li.appendChild(button);
+      return li;
+    });
+
+    const ul = document.createElement("ul");
+    ul.classList.add("sortButtonList");
+    ul.append(...btnItems);
+    return ul;
+  }
+}
+
+const todos = new Todos(document.getElementById("root"));
 todos.start();
