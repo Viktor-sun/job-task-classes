@@ -1,4 +1,4 @@
-class Todos {
+class App {
   elements = new Elements();
 
   constructor(rootRef) {
@@ -6,7 +6,7 @@ class Todos {
   }
 
   start() {
-    this.domRefs = this.createMainMarcup();
+    this.createMainMarcup();
     this.render();
   }
 
@@ -128,12 +128,13 @@ class Todos {
     const todos = JSON.parse(localStorage.getItem("todos")) || [];
     const activeElements = todos.filter(({ completed }) => !completed).length;
 
-    const counter = document.querySelector(".todoCounter");
+    const counter = this.rootElement.querySelector(".todoCounter");
     counter.textContent = `item left: ${activeElements}`;
   }
 
-  showBtnClear(todos) {
-    const buttonClear = document.querySelector(".btnClear");
+  showBtnClear() {
+    const todos = JSON.parse(localStorage.getItem("todos")) || [];
+    const buttonClear = this.rootElement.querySelector(".btnClear");
     const hasCompletedTodo = todos.some((todo) => todo.completed);
     if (hasCompletedTodo) {
       buttonClear.classList.remove("isHidden");
@@ -143,10 +144,10 @@ class Todos {
   }
 
   createMainMarcup() {
-    const container = this.elements.createContainer();
+    const container = this.elements.createContainer("container");
     const title = this.elements.createTitle();
     const form = this.elements.createForm(this.onForm, this.onSelectAll);
-    const todoList = this.elements.createTodoList();
+    const todoContainer = this.elements.createContainer("todoContainer");
     const counterUnfulfilledTodo = this.elements.createCounterUnfulfilledTodo();
     const btnClear = this.elements.createBtnClear(this.onClearCompleted);
     const sortButtonList = this.elements.createSortButtonList(
@@ -155,7 +156,7 @@ class Todos {
       this.onButtonCompleted
     );
 
-    form.insertAdjacentElement("beforeend", todoList);
+    form.insertAdjacentElement("beforeend", todoContainer);
     form.appendChild(counterUnfulfilledTodo);
     form.appendChild(sortButtonList);
     form.appendChild(btnClear);
@@ -166,111 +167,31 @@ class Todos {
     return container;
   }
 
-  getTodos() {
-    let todos = JSON.parse(localStorage.getItem("todos")) || [];
-    const filtrationState = localStorage.getItem("filtrationState");
-
-    switch (filtrationState) {
-      case "all":
-        // buttonAll.classList.add("activeSortButton");
-        // butttonActive.classList.remove("activeSortButton");
-        // buttonCompleted.classList.remove("activeSortButton");
-        return todos;
-
-      case "active":
-        // buttonAll.classList.remove("activeSortButton");
-        // butttonActive.classList.add("activeSortButton");
-        // buttonCompleted.classList.remove("activeSortButton");
-
-        const todosActive = todos.filter(({ completed }) => !completed);
-        return todosActive;
-
-      case "completed":
-        // buttonAll.classList.remove("activeSortButton");
-        // butttonActive.classList.remove("activeSortButton");
-        // buttonCompleted.classList.add("activeSortButton");
-
-        const todosCompleted = todos.filter(({ completed }) => completed);
-        return todosCompleted;
-
-      default:
-        // buttonAll.classList.add("activeSortButton");
-        // butttonActive.classList.remove("activeSortButton");
-        // buttonCompleted.classList.remove("activeSortButton");
-        return todos;
-    }
-  }
-
   render() {
-    const todos = this.getTodos();
-    const rootElement = document.querySelector(".todos");
-    rootElement.innerHTML = "";
+    const todoContainer = this.rootElement.querySelector(".todoContainer");
+    todoContainer.innerHTML = "";
 
-    const arrElements = todos.map(({ id, todo, completed }) =>
-      this.elements.createTodoItem(
-        {
-          id,
-          todo,
-          completed,
-        },
-        {
-          onDel: this.onDel,
-          onCheckbox: this.onCheckbox,
-          onShowUpdateInput: this.onShowUpdateInput,
-          onBlur: this.onBlur,
-          onKeyDown: this.onKeyDown,
-        }
-      )
-    );
-    rootElement.append(...arrElements);
+    const todos = new Todos({
+      onDel: this.onDel,
+      onCheckbox: this.onCheckbox,
+      onShowUpdateInput: this.onShowUpdateInput,
+      onBlur: this.onBlur,
+      onKeyDown: this.onKeyDown,
+    }).getTodoList();
+
+    todoContainer.insertAdjacentElement("beforeend", todos);
     this.changeCounter();
-    this.showBtnClear(todos);
+    this.showBtnClear();
   }
 }
 
-// ===================================
-class Elements {
-  createContainer() {
-    const container = document.createElement("div");
-    container.classList.add("container");
-    return container;
-  }
-
-  createTitle() {
-    const h1 = document.createElement("h1");
-    h1.textContent = "todos";
-    h1.classList.add("title");
-    return h1;
-  }
-
-  createForm(onForm, onSelectAll) {
-    const formContainer = document.createElement("div");
-    formContainer.classList.add("formContainer");
-
-    const form = document.createElement("form");
-    form.classList.add("form");
-    form.addEventListener("submit", onForm);
-
-    const input = document.createElement("input");
-    input.setAttribute("type", "text");
-    input.setAttribute("id", "input");
-    input.setAttribute("autocomplete", "off");
-    input.setAttribute("placeholder", "What needs to be done?");
-    input.setAttribute("autofocus", true);
-    input.classList.add("input");
-
-    const buttonSelectAll = document.createElement("button");
-    buttonSelectAll.setAttribute("type", "button");
-    buttonSelectAll.textContent = "❯";
-    buttonSelectAll.classList.add("btnSelectAll");
-    buttonSelectAll.addEventListener("click", onSelectAll);
-
-    form.appendChild(buttonSelectAll);
-    form.appendChild(input);
-
-    formContainer.appendChild(form);
-
-    return formContainer;
+class Todos {
+  constructor(handlers) {
+    this.onDel = handlers.onDel;
+    this.onCheckbox = handlers.onCheckbox;
+    this.onShowUpdateInput = handlers.onShowUpdateInput;
+    this.onBlur = handlers.onBlur;
+    this.onKeyDown = handlers.onKeyDown;
   }
 
   createTodoList() {
@@ -327,6 +248,109 @@ class Elements {
     return li;
   }
 
+  getTodos() {
+    let todos = JSON.parse(localStorage.getItem("todos")) || [];
+    const filtrationState = localStorage.getItem("filtrationState");
+
+    switch (filtrationState) {
+      case "all":
+        // buttonAll.classList.add("activeSortButton");
+        // butttonActive.classList.remove("activeSortButton");
+        // buttonCompleted.classList.remove("activeSortButton");
+        return todos;
+
+      case "active":
+        // buttonAll.classList.remove("activeSortButton");
+        // butttonActive.classList.add("activeSortButton");
+        // buttonCompleted.classList.remove("activeSortButton");
+
+        const todosActive = todos.filter(({ completed }) => !completed);
+        return todosActive;
+
+      case "completed":
+        // buttonAll.classList.remove("activeSortButton");
+        // butttonActive.classList.remove("activeSortButton");
+        // buttonCompleted.classList.add("activeSortButton");
+
+        const todosCompleted = todos.filter(({ completed }) => completed);
+        return todosCompleted;
+
+      default:
+        // buttonAll.classList.add("activeSortButton");
+        // butttonActive.classList.remove("activeSortButton");
+        // buttonCompleted.classList.remove("activeSortButton");
+        return todos;
+    }
+  }
+
+  getTodoList() {
+    const todos = this.getTodos();
+    const arrElements = todos.map(({ id, todo, completed }) =>
+      this.createTodoItem(
+        {
+          id,
+          todo,
+          completed,
+        },
+        {
+          onDel: this.onDel,
+          onCheckbox: this.onCheckbox,
+          onShowUpdateInput: this.onShowUpdateInput,
+          onBlur: this.onBlur,
+          onKeyDown: this.onKeyDown,
+        }
+      )
+    );
+    const ul = this.createTodoList();
+    ul.append(...arrElements);
+    return ul;
+  }
+}
+// ===================================
+class Elements {
+  createContainer(className) {
+    const container = document.createElement("div");
+    container.classList.add(className);
+    return container;
+  }
+
+  createTitle() {
+    const h1 = document.createElement("h1");
+    h1.textContent = "todos";
+    h1.classList.add("title");
+    return h1;
+  }
+
+  createForm(onForm, onSelectAll) {
+    const formContainer = document.createElement("div");
+    formContainer.classList.add("formContainer");
+
+    const form = document.createElement("form");
+    form.classList.add("form");
+    form.addEventListener("submit", onForm);
+
+    const input = document.createElement("input");
+    input.setAttribute("type", "text");
+    input.setAttribute("id", "input");
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("placeholder", "What needs to be done?");
+    input.setAttribute("autofocus", true);
+    input.classList.add("input");
+
+    const buttonSelectAll = document.createElement("button");
+    buttonSelectAll.setAttribute("type", "button");
+    buttonSelectAll.textContent = "❯";
+    buttonSelectAll.classList.add("btnSelectAll");
+    buttonSelectAll.addEventListener("click", onSelectAll);
+
+    form.appendChild(buttonSelectAll);
+    form.appendChild(input);
+
+    formContainer.appendChild(form);
+
+    return formContainer;
+  }
+
   createCounterUnfulfilledTodo() {
     const counter = document.createElement("span");
     counter.classList.add("todoCounter");
@@ -368,5 +392,5 @@ class Elements {
   }
 }
 
-const todos = new Todos(document.getElementById("root"));
+const todos = new App(document.getElementById("root"));
 todos.start();
