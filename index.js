@@ -129,7 +129,7 @@ class App {
     const activeElements = todos.filter(({ completed }) => !completed).length;
 
     const counter = this.rootElement.querySelector(".todoCounter");
-    counter.textContent = `item left: ${activeElements}`;
+    counter.textContent = `${activeElements} item left`;
   }
 
   showBtnClear() {
@@ -143,6 +143,45 @@ class App {
     }
   }
 
+  showActiveBtnOnSort() {
+    const filtrationState = localStorage.getItem("filtrationState");
+    const buttonAll = this.rootElement.querySelector("#buttonAll");
+    const butttonActive = this.rootElement.querySelector("#butttonActive");
+    const buttonCompleted = this.rootElement.querySelector("#buttonCompleted");
+
+    switch (filtrationState) {
+      case "all":
+        buttonAll.classList.add("activeSortButton");
+        butttonActive.classList.remove("activeSortButton");
+        buttonCompleted.classList.remove("activeSortButton");
+        break;
+
+      case "active":
+        buttonAll.classList.remove("activeSortButton");
+        butttonActive.classList.add("activeSortButton");
+        buttonCompleted.classList.remove("activeSortButton");
+
+        break;
+
+      case "completed":
+        buttonAll.classList.remove("activeSortButton");
+        butttonActive.classList.remove("activeSortButton");
+        buttonCompleted.classList.add("activeSortButton");
+
+        break;
+
+      default:
+        buttonAll.classList.add("activeSortButton");
+        butttonActive.classList.remove("activeSortButton");
+        buttonCompleted.classList.remove("activeSortButton");
+        break;
+    }
+  }
+
+  // showActiveTodo() {
+  //   const todos = JSON.parse(localStorage.getItem("todos")) || [];
+  // }
+
   createMainMarcup() {
     const container = this.elements.createContainer("container");
     const title = this.elements.createTitle();
@@ -155,11 +194,14 @@ class App {
       this.onButtonActive,
       this.onButtonCompleted
     );
+    const footer = this.elements.createFooter();
+
+    footer.appendChild(counterUnfulfilledTodo);
+    footer.appendChild(sortButtonList);
+    footer.appendChild(btnClear);
 
     form.insertAdjacentElement("beforeend", todoContainer);
-    form.appendChild(counterUnfulfilledTodo);
-    form.appendChild(sortButtonList);
-    form.appendChild(btnClear);
+    form.appendChild(footer);
     container.appendChild(title);
     container.appendChild(form);
 
@@ -182,6 +224,7 @@ class App {
     todoContainer.insertAdjacentElement("beforeend", todos);
     this.changeCounter();
     this.showBtnClear();
+    this.showActiveBtnOnSort();
   }
 }
 
@@ -206,6 +249,7 @@ class Todos {
   ) {
     const li = document.createElement("li");
     li.classList.add("todoItem");
+    completed && li.classList.add("unactive");
     li.textContent = todo;
     li.dataset.index = id;
 
@@ -254,31 +298,17 @@ class Todos {
 
     switch (filtrationState) {
       case "all":
-        // buttonAll.classList.add("activeSortButton");
-        // butttonActive.classList.remove("activeSortButton");
-        // buttonCompleted.classList.remove("activeSortButton");
         return todos;
 
       case "active":
-        // buttonAll.classList.remove("activeSortButton");
-        // butttonActive.classList.add("activeSortButton");
-        // buttonCompleted.classList.remove("activeSortButton");
-
         const todosActive = todos.filter(({ completed }) => !completed);
         return todosActive;
 
       case "completed":
-        // buttonAll.classList.remove("activeSortButton");
-        // butttonActive.classList.remove("activeSortButton");
-        // buttonCompleted.classList.add("activeSortButton");
-
         const todosCompleted = todos.filter(({ completed }) => completed);
         return todosCompleted;
 
       default:
-        // buttonAll.classList.add("activeSortButton");
-        // butttonActive.classList.remove("activeSortButton");
-        // buttonCompleted.classList.remove("activeSortButton");
         return todos;
     }
   }
@@ -312,6 +342,12 @@ class Elements {
     const container = document.createElement("div");
     container.classList.add(className);
     return container;
+  }
+
+  createFooter() {
+    const footer = document.createElement("footer");
+    footer.classList.add("footer");
+    return footer;
   }
 
   createTitle() {
@@ -354,7 +390,7 @@ class Elements {
   createCounterUnfulfilledTodo() {
     const counter = document.createElement("span");
     counter.classList.add("todoCounter");
-    counter.textContent = "item left: 0";
+    counter.textContent = "0 item left";
     return counter;
   }
 

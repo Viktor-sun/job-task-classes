@@ -96,6 +96,11 @@ body {
   border-top: 1px solid #ededed;
 }
 
+.todoItem.unactive {
+  text-decoration: line-through;
+  color: #d9d9d9;
+}
+
 .btnDel {
   position: absolute;
   top: 13px;
@@ -123,9 +128,14 @@ body {
 }
 
 .checkbox {
-  position: absolute;
-  top: -50px;
-  left: -100px;
+  position: absolute !important;
+  clip: rect(1px 1px 1px 1px);
+  clip: rect(1px, 1px, 1px, 1px);
+  padding: 0 !important;
+  border: 0 !important;
+  height: 1px !important;
+  width: 1px !important;
+  overflow: hidden;
 }
 
 .checkboxIcon {
@@ -151,8 +161,10 @@ body {
 
 .updateTodoInput {
   position: absolute;
-  top: 0;
-  width: 100%;
+  top: 0px;
+  left: 60px;
+  height: 100%;
+  width: 89%;
   font-size: 24px;
   font-family: inherit;
   font-weight: inherit;
@@ -163,21 +175,64 @@ body {
   border: 1px solid #999;
   box-shadow: inset 0 -1px 5px 0 rgb(0 0 0 / 20%);
   box-sizing: border-box;
+  background-color: #fefefe;
+  cursor: pointer;
+}
+
+.todoCounter {
+  font-weight: 300;
+  font-size: 14px;
+  color: #777;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  padding: 7px 15px;
+}
+
+.sortButtonList {
+  margin: 0;
+  padding: 0;
+  display: inline-flex;
+  margin-left: 90px;
+  list-style: none;
+}
+
+.sortButton {
+  color: inherit;
+  margin: 3px;
+  padding: 3px 7px;
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
   background-color: transparent;
   cursor: pointer;
+  transition: border-color 250ms ease;
+}
+
+.sortButton:hover {
+  border-color: rgba(175, 47, 47, 0.1);
+}
+
+.sortButton.activeSortButton {
+  border-color: #efd5d5;
+}
+
+.btnClear {
+  margin-left: auto;
+  font-weight: 300;
+  font-size: 14px;
+  color: #777;
+  cursor: pointer;
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.btnClear:hover {
+  text-decoration: underline;
 }
 
 .isHidden {
   opacity: 0;
-}
-
-.visually-hidden {
-  position: absolute !important;
-  clip: rect(1px 1px 1px 1px);
-  clip: rect(1px, 1px, 1px, 1px);
-  padding: 0 !important;
-  border: 0 !important;
-  height: 1px !important;
-  width: 1px !important;
-  overflow: hidden;
 }
