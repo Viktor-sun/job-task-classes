@@ -1,8 +1,24 @@
 class App {
-  elements = new Elements();
+  elements = null;
 
   constructor(rootRef) {
     this.rootElement = rootRef;
+
+    const elemenstInit = new Elements();
+    this.elements = {
+      container: elemenstInit.createContainer("container"),
+      title: elemenstInit.createTitle(),
+      form: elemenstInit.createForm(this.onSubmit, this.onSelectAll),
+      todoContainer: elemenstInit.createContainer("todoContainer"),
+      counterUnfulfilledTodo: elemenstInit.createCounterUnfulfilledTodo(),
+      btnClear: elemenstInit.createBtnClear(this.onClearCompleted),
+      sortButtonList: elemenstInit.createSortButtonList(
+        this.onButtonSelectAll,
+        this.onButtonSelectActive,
+        this.onButtonSelectCompleted
+      ),
+      footer: elemenstInit.createFooter(),
+    };
   }
 
   start() {
@@ -10,7 +26,7 @@ class App {
     this.render();
   }
 
-  onForm = (e) => {
+  onSubmit = (e) => {
     e.preventDefault();
     const todo = e.target.input.value.trim();
     if (todo === "") return;
@@ -25,16 +41,11 @@ class App {
     e.currentTarget.reset();
   };
 
-  onDel = (e) => {
-    const liIndex = e.target.dataset.index;
-
-    const todos = JSON.parse(localStorage.getItem("todos")) || [];
-    const filteredTodo = todos.filter((todo) => todo.id !== Number(liIndex));
-    localStorage.setItem("todos", JSON.stringify(filteredTodo));
-    this.render();
+  onDelete = (e) => {
+    this.deleteTodo(e);
   };
 
-  onCheckbox = (e) => {
+  onSelect = (e) => {
     const checkboxIndex = e.target.dataset.index;
 
     const todos = JSON.parse(localStorage.getItem("todos")) || [];
@@ -52,16 +63,19 @@ class App {
   onSelectAll = () => {
     const todos = JSON.parse(localStorage.getItem("todos")) || [];
     const stateButtonSelectAll = localStorage.getItem("stateButtonSelectAll");
+    const btnSelectAll = this.elements.form.querySelector(".btnSelectAll");
 
     if (stateButtonSelectAll === "yes") {
       todos.map((todo) => {
         todo.completed = false;
       });
 
+      btnSelectAll.classList.toggle("isSelect");
       localStorage.setItem("stateButtonSelectAll", "no");
     } else {
       todos.map((todo) => (todo.completed = true));
 
+      btnSelectAll.classList.toggle("isSelect");
       localStorage.setItem("stateButtonSelectAll", "yes");
     }
 
@@ -69,17 +83,17 @@ class App {
     this.render();
   };
 
-  onButtonAll = () => {
+  onButtonSelectAll = () => {
     localStorage.setItem("filtrationState", "all");
     this.render();
   };
 
-  onButtonActive = () => {
+  onButtonSelectActive = () => {
     localStorage.setItem("filtrationState", "active");
     this.render();
   };
 
-  onButtonCompleted = () => {
+  onButtonSelectCompleted = () => {
     localStorage.setItem("filtrationState", "completed");
     this.render();
   };
@@ -92,6 +106,7 @@ class App {
   };
 
   onShowUpdateInput = (e) => {
+    this.showCheckboxSelect(e.target.dataset.index);
     e.target.classList.remove("isHidden");
   };
 
@@ -105,10 +120,22 @@ class App {
     }
   };
 
+  deleteTodo(e) {
+    const liIndex = e.target.dataset.index;
+    const todos = JSON.parse(localStorage.getItem("todos")) || [];
+    const filteredTodo = todos.filter((todo) => todo.id !== Number(liIndex));
+    localStorage.setItem("todos", JSON.stringify(filteredTodo));
+    this.render();
+  }
+
   updateTodo(e) {
     const index = e.target.dataset.index;
     const newTodo = e.target.value.trim();
-    if (newTodo === "") return;
+    if (newTodo === "") {
+      this.deleteTodo(e);
+      e.target.classList.add("isHidden");
+      return;
+    }
 
     const todos = JSON.parse(localStorage.getItem("todos")) || [];
     const updateTodo = todos.map((todo) => {
@@ -122,32 +149,34 @@ class App {
     this.render();
 
     e.target.classList.add("isHidden");
+    // localStorage.setItem("stateInputChange", "close");
   }
 
   changeCounter() {
     const todos = JSON.parse(localStorage.getItem("todos")) || [];
     const activeElements = todos.filter(({ completed }) => !completed).length;
 
-    const counter = this.rootElement.querySelector(".todoCounter");
-    counter.textContent = `${activeElements} item left`;
+    this.elements.counterUnfulfilledTodo.textContent = `${activeElements} item left`;
   }
 
   showBtnClear() {
     const todos = JSON.parse(localStorage.getItem("todos")) || [];
-    const buttonClear = this.rootElement.querySelector(".btnClear");
+
+    const { btnClear } = this.elements;
     const hasCompletedTodo = todos.some((todo) => todo.completed);
     if (hasCompletedTodo) {
-      buttonClear.classList.remove("isHidden");
+      btnClear.classList.remove("isHidden");
     } else {
-      buttonClear.classList.add("isHidden");
+      btnClear.classList.add("isHidden");
     }
   }
 
   showActiveBtnOnSort() {
     const filtrationState = localStorage.getItem("filtrationState");
-    const buttonAll = this.rootElement.querySelector("#buttonAll");
-    const butttonActive = this.rootElement.querySelector("#butttonActive");
-    const buttonCompleted = this.rootElement.querySelector("#buttonCompleted");
+    const { sortButtonList } = this.elements;
+    const buttonAll = sortButtonList.querySelector("#buttonAll");
+    const butttonActive = sortButtonList.querySelector("#butttonActive");
+    const buttonCompleted = sortButtonList.querySelector("#buttonCompleted");
 
     switch (filtrationState) {
       case "all":
@@ -160,14 +189,12 @@ class App {
         buttonAll.classList.remove("activeSortButton");
         butttonActive.classList.add("activeSortButton");
         buttonCompleted.classList.remove("activeSortButton");
-
         break;
 
       case "completed":
         buttonAll.classList.remove("activeSortButton");
         butttonActive.classList.remove("activeSortButton");
         buttonCompleted.classList.add("activeSortButton");
-
         break;
 
       default:
@@ -178,23 +205,23 @@ class App {
     }
   }
 
-  // showActiveTodo() {
-  //   const todos = JSON.parse(localStorage.getItem("todos")) || [];
-  // }
+  showCheckboxSelect(index) {
+    this.elements.todoContainer
+      .querySelector(`.fieldStatus[data-index='${index}']`)
+      .classList.add("isHidden");
+  }
 
   createMainMarcup() {
-    const container = this.elements.createContainer("container");
-    const title = this.elements.createTitle();
-    const form = this.elements.createForm(this.onForm, this.onSelectAll);
-    const todoContainer = this.elements.createContainer("todoContainer");
-    const counterUnfulfilledTodo = this.elements.createCounterUnfulfilledTodo();
-    const btnClear = this.elements.createBtnClear(this.onClearCompleted);
-    const sortButtonList = this.elements.createSortButtonList(
-      this.onButtonAll,
-      this.onButtonActive,
-      this.onButtonCompleted
-    );
-    const footer = this.elements.createFooter();
+    const {
+      container,
+      title,
+      form,
+      todoContainer,
+      counterUnfulfilledTodo,
+      btnClear,
+      sortButtonList,
+      footer,
+    } = this.elements;
 
     footer.appendChild(counterUnfulfilledTodo);
     footer.appendChild(sortButtonList);
@@ -202,20 +229,20 @@ class App {
 
     form.insertAdjacentElement("beforeend", todoContainer);
     form.appendChild(footer);
+
     container.appendChild(title);
     container.appendChild(form);
 
     this.rootElement.appendChild(container);
-    return container;
   }
 
   render() {
-    const todoContainer = this.rootElement.querySelector(".todoContainer");
+    const { todoContainer } = this.elements;
     todoContainer.innerHTML = "";
 
     const todos = new Todos({
-      onDel: this.onDel,
-      onCheckbox: this.onCheckbox,
+      onDelete: this.onDelete,
+      onSelect: this.onSelect,
       onShowUpdateInput: this.onShowUpdateInput,
       onBlur: this.onBlur,
       onKeyDown: this.onKeyDown,
@@ -230,8 +257,8 @@ class App {
 
 class Todos {
   constructor(handlers) {
-    this.onDel = handlers.onDel;
-    this.onCheckbox = handlers.onCheckbox;
+    this.onDelete = handlers.onDelete;
+    this.onSelect = handlers.onSelect;
     this.onShowUpdateInput = handlers.onShowUpdateInput;
     this.onBlur = handlers.onBlur;
     this.onKeyDown = handlers.onKeyDown;
@@ -245,7 +272,7 @@ class Todos {
 
   createTodoItem(
     { id, todo, completed },
-    { onDel, onCheckbox, onShowUpdateInput, onBlur, onKeyDown }
+    { onDelete, onSelect, onShowUpdateInput, onBlur, onKeyDown }
   ) {
     const li = document.createElement("li");
     li.classList.add("todoItem");
@@ -256,10 +283,11 @@ class Todos {
     const button = document.createElement("button");
     button.classList.add("btnDel");
     button.dataset.index = id;
-    button.addEventListener("click", onDel);
+    button.addEventListener("click", onDelete);
 
     const label = document.createElement("label");
     label.classList.add("fieldStatus");
+    label.dataset.index = id;
 
     const checkbox = document.createElement("input");
     checkbox.classList.add("checkbox");
@@ -267,7 +295,7 @@ class Todos {
     checkbox.setAttribute("name", "status");
     checkbox.dataset.index = id;
     completed && checkbox.setAttribute("checked", true);
-    checkbox.addEventListener("click", onCheckbox);
+    checkbox.addEventListener("click", onSelect);
 
     const spanForCheckbox = document.createElement("span");
     spanForCheckbox.classList.add("checkboxIcon");
@@ -323,8 +351,8 @@ class Todos {
           completed,
         },
         {
-          onDel: this.onDel,
-          onCheckbox: this.onCheckbox,
+          onDelete: this.onDelete,
+          onSelect: this.onSelect,
           onShowUpdateInput: this.onShowUpdateInput,
           onBlur: this.onBlur,
           onKeyDown: this.onKeyDown,
@@ -336,7 +364,7 @@ class Todos {
     return ul;
   }
 }
-// ===================================
+
 class Elements {
   createContainer(className) {
     const container = document.createElement("div");
@@ -357,13 +385,13 @@ class Elements {
     return h1;
   }
 
-  createForm(onForm, onSelectAll) {
+  createForm(onSubmit, onSelectAll) {
     const formContainer = document.createElement("div");
     formContainer.classList.add("formContainer");
 
     const form = document.createElement("form");
     form.classList.add("form");
-    form.addEventListener("submit", onForm);
+    form.addEventListener("submit", onSubmit);
 
     const input = document.createElement("input");
     input.setAttribute("type", "text");
@@ -377,6 +405,8 @@ class Elements {
     buttonSelectAll.setAttribute("type", "button");
     buttonSelectAll.textContent = "❯";
     buttonSelectAll.classList.add("btnSelectAll");
+    localStorage.getItem("stateButtonSelectAll") === "yes" &&
+      buttonSelectAll.classList.add("isSelect");
     buttonSelectAll.addEventListener("click", onSelectAll);
 
     form.appendChild(buttonSelectAll);
