@@ -245,6 +245,10 @@ body {
   z-index: 0;
 }
 
+.fieldStatus.isHidden .checkboxIcon {
+  cursor: grab;
+}
+
 .isHidden {
   opacity: 0;
 }
