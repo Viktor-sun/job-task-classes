@@ -155,8 +155,12 @@ class App {
   changeCounter() {
     const todos = JSON.parse(localStorage.getItem("todos")) || [];
     const activeElements = todos.filter(({ completed }) => !completed).length;
+    const isMoreThanOneActiveElements =
+      todos.filter(({ completed }) => !completed).length > 1;
 
-    this.elements.counterUnfulfilledTodo.textContent = `${activeElements} item left`;
+    this.elements.counterUnfulfilledTodo.textContent = `${activeElements} item${
+      isMoreThanOneActiveElements ? "s" : ""
+    } left`;
   }
 
   showBtnClear() {
