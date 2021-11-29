@@ -95,6 +95,7 @@ class App {
     });
     localStorage.setItem("todos", JSON.stringify(todos));
 
+    this.changeSateBtnSelectAll(todos);
     this.render();
   };
 
@@ -201,6 +202,18 @@ class App {
     } left`;
   }
 
+  changeSateBtnSelectAll(todos) {
+    const btnSelectAll = this.elements.form.querySelector(".btnSelectAll");
+    const isAllCompleted = todos.every(({ completed }) => completed);
+    if (isAllCompleted) {
+      localStorage.setItem("stateButtonSelectAll", "yes");
+      btnSelectAll.classList.add("isSelect");
+      return;
+    }
+    localStorage.setItem("stateButtonSelectAll", "no");
+    btnSelectAll.classList.remove("isSelect");
+  }
+
   showBtnClear() {
     const todos = JSON.parse(localStorage.getItem("todos")) || [];
 
@@ -294,6 +307,11 @@ class App {
     this.changeCounter();
     this.showBtnClear();
     this.showActiveBtnOnSort();
+
+    // const todose = JSON.parse(localStorage.getItem("todos")) || [];
+    // const isAllCompleted = todose.every(({ completed }) => completed);
+    // isAllCompleted && localStorage.setItem("stateButtonSelectAll", "yes");
+    // console.log(isAllCompleted);
   }
 }
 
