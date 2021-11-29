@@ -1,22 +1,60 @@
+const eventNames = {
+  submit: "submit",
+  selectAll: "selectAll",
+  clearCompleted: "clearCompleted",
+  btnSelectAll: "btnSelectAll",
+  btnSelectActive: "btnSelectActive",
+  btnSelectCompleted: "btnSelectCompleted",
+  btnDelete: "btnDelete",
+  select: "select",
+  showUpdateInput: "showUpdateInput",
+  blur: "blur",
+  keyDown: "keyDown",
+};
+
+class EventEmitter {
+  events = {};
+
+  on(eventName, callback) {
+    !this.events[eventName] && (this.events[eventName] = []);
+    this.events[eventName].push(callback);
+  }
+
+  off(eventName, callback) {
+    this.events[eventName] = this.events[eventName].filter(
+      (eventCallback) => callback !== eventCallback
+    );
+  }
+
+  emit(eventName, args) {
+    const event = this.events[eventName];
+    event && event.forEach((callback) => callback.call(null, args));
+  }
+}
+
 class App {
   elements = null;
 
   constructor(rootRef) {
     this.rootElement = rootRef;
 
-    const elemenstInit = new Elements();
+    const elemenstInit = new Elements({
+      onSubmit: this.onSubmit,
+      onSelectAll: this.onSelectAll,
+      onClearCompleted: this.onClearCompleted,
+      onButtonSelectAll: this.onButtonSelectAll,
+      onButtonSelectActive: this.onButtonSelectActive,
+      onButtonSelectCompleted: this.onButtonSelectCompleted,
+    });
+
     this.elements = {
       container: elemenstInit.createContainer("container"),
       title: elemenstInit.createTitle(),
-      form: elemenstInit.createForm(this.onSubmit, this.onSelectAll),
+      form: elemenstInit.createForm(),
       todoContainer: elemenstInit.createContainer("todoContainer"),
       counterUnfulfilledTodo: elemenstInit.createCounterUnfulfilledTodo(),
-      btnClear: elemenstInit.createBtnClear(this.onClearCompleted),
-      sortButtonList: elemenstInit.createSortButtonList(
-        this.onButtonSelectAll,
-        this.onButtonSelectActive,
-        this.onButtonSelectCompleted
-      ),
+      btnClear: elemenstInit.createBtnClear(),
+      sortButtonList: elemenstInit.createSortButtonList(),
       footer: elemenstInit.createFooter(),
     };
   }
@@ -259,13 +297,24 @@ class App {
   }
 }
 
-class Todos {
+class Todos extends EventEmitter {
   constructor(handlers) {
+    super();
     this.onDelete = handlers.onDelete;
     this.onSelect = handlers.onSelect;
     this.onShowUpdateInput = handlers.onShowUpdateInput;
     this.onBlur = handlers.onBlur;
     this.onKeyDown = handlers.onKeyDown;
+
+    this.createSubscribes();
+  }
+
+  createSubscribes() {
+    this.on(eventNames.btnDelete, this.onDelete);
+    this.on(eventNames.select, this.onSelect);
+    this.on(eventNames.showUpdateInput, this.onShowUpdateInput);
+    this.on(eventNames.blur, this.onBlur);
+    this.on(eventNames.keyDown, this.onKeyDown);
   }
 
   createTodoList() {
@@ -274,10 +323,7 @@ class Todos {
     return ul;
   }
 
-  createTodoItem(
-    { id, todo, completed },
-    { onDelete, onSelect, onShowUpdateInput, onBlur, onKeyDown }
-  ) {
+  createTodoItem({ id, todo, completed }) {
     const li = document.createElement("li");
     li.classList.add("todoItem");
     completed && li.classList.add("unactive");
@@ -287,7 +333,7 @@ class Todos {
     const button = document.createElement("button");
     button.classList.add("btnDel");
     button.dataset.index = id;
-    button.addEventListener("click", onDelete);
+    button.addEventListener("click", (e) => this.emit(eventNames.btnDelete, e));
 
     const label = document.createElement("label");
     label.classList.add("fieldStatus");
@@ -299,7 +345,7 @@ class Todos {
     checkbox.setAttribute("name", "status");
     checkbox.dataset.index = id;
     completed && checkbox.setAttribute("checked", true);
-    checkbox.addEventListener("click", onSelect);
+    checkbox.addEventListener("click", (e) => this.emit(eventNames.select, e));
 
     const spanForCheckbox = document.createElement("span");
     spanForCheckbox.classList.add("checkboxIcon");
@@ -313,9 +359,11 @@ class Todos {
     input.value = todo;
     input.dataset.index = id;
     input.setAttribute("type", "text");
-    input.addEventListener("dblclick", onShowUpdateInput);
-    input.addEventListener("blur", onBlur);
-    input.addEventListener("keydown", onKeyDown);
+    input.addEventListener("dblclick", (e) =>
+      this.emit(eventNames.showUpdateInput, e)
+    );
+    input.addEventListener("blur", (e) => this.emit(eventNames.blur, e));
+    input.addEventListener("keydown", (e) => this.emit(eventNames.keyDown, e));
 
     li.prepend(label);
     li.appendChild(input);
@@ -348,20 +396,7 @@ class Todos {
   getTodoList() {
     const todos = this.getTodos();
     const arrElements = todos.map(({ id, todo, completed }) =>
-      this.createTodoItem(
-        {
-          id,
-          todo,
-          completed,
-        },
-        {
-          onDelete: this.onDelete,
-          onSelect: this.onSelect,
-          onShowUpdateInput: this.onShowUpdateInput,
-          onBlur: this.onBlur,
-          onKeyDown: this.onKeyDown,
-        }
-      )
+      this.createTodoItem({ id, todo, completed })
     );
     const ul = this.createTodoList();
     ul.append(...arrElements);
@@ -369,7 +404,36 @@ class Todos {
   }
 }
 
-class Elements {
+class Elements extends EventEmitter {
+  constructor({
+    onSubmit,
+    onSelectAll,
+    onClearCompleted,
+    onButtonSelectAll,
+    onButtonSelectActive,
+    onButtonSelectCompleted,
+  }) {
+    super();
+
+    this.onSubmit = onSubmit;
+    this.onSelectAll = onSelectAll;
+    this.onClearCompleted = onClearCompleted;
+    this.onAll = onButtonSelectAll;
+    this.onActive = onButtonSelectActive;
+    this.onCompleted = onButtonSelectCompleted;
+
+    this.createSubscribes();
+  }
+
+  createSubscribes() {
+    this.on(eventNames.submit, this.onSubmit);
+    this.on(eventNames.selectAll, this.onSelectAll);
+    this.on(eventNames.clearCompleted, this.onClearCompleted);
+    this.on(eventNames.btnSelectAll, this.onAll);
+    this.on(eventNames.btnSelectActive, this.onActive);
+    this.on(eventNames.btnSelectCompleted, this.onCompleted);
+  }
+
   createContainer(className) {
     const container = document.createElement("div");
     container.classList.add(className);
@@ -389,13 +453,13 @@ class Elements {
     return h1;
   }
 
-  createForm(onSubmit, onSelectAll) {
+  createForm() {
     const formContainer = document.createElement("div");
     formContainer.classList.add("formContainer");
 
     const form = document.createElement("form");
     form.classList.add("form");
-    form.addEventListener("submit", onSubmit);
+    form.addEventListener("submit", (e) => this.emit(eventNames.submit, e));
 
     const input = document.createElement("input");
     input.setAttribute("type", "text");
@@ -411,7 +475,9 @@ class Elements {
     buttonSelectAll.classList.add("btnSelectAll");
     localStorage.getItem("stateButtonSelectAll") === "yes" &&
       buttonSelectAll.classList.add("isSelect");
-    buttonSelectAll.addEventListener("click", onSelectAll);
+    buttonSelectAll.addEventListener("click", () =>
+      this.emit(eventNames.selectAll)
+    );
 
     form.appendChild(buttonSelectAll);
     form.appendChild(input);
@@ -428,20 +494,28 @@ class Elements {
     return counter;
   }
 
-  createBtnClear(onClear) {
+  createBtnClear() {
     const btn = document.createElement("button");
     btn.classList.add("btnClear");
     btn.textContent = "Clear completed";
-    btn.addEventListener("click", onClear);
+    btn.addEventListener("click", () => this.emit(eventNames.clearCompleted));
     return btn;
   }
 
-  createSortButtonList(onAll, onActive, onCompleted) {
+  createSortButtonList() {
     const btnItems = [
-      { id: "buttonAll", name: "All", handler: onAll },
-      { id: "butttonActive", name: "Active", handler: onActive },
-      { id: "buttonCompleted", name: "Completed", handler: onCompleted },
-    ].map(({ id, name, handler }) => {
+      { id: "buttonAll", name: "All", eventName: eventNames.btnSelectAll },
+      {
+        id: "butttonActive",
+        name: "Active",
+        eventName: eventNames.btnSelectActive,
+      },
+      {
+        id: "buttonCompleted",
+        name: "Completed",
+        eventName: eventNames.btnSelectCompleted,
+      },
+    ].map(({ id, name, eventName }) => {
       const li = document.createElement("li");
 
       const button = document.createElement("button");
@@ -449,7 +523,7 @@ class Elements {
       button.setAttribute("id", id);
       button.textContent = name;
       button.classList.add("sortButton");
-      button.addEventListener("click", handler);
+      button.addEventListener("click", () => this.emit(eventName));
 
       li.appendChild(button);
       return li;
