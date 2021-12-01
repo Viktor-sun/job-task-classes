@@ -63,8 +63,6 @@ class ApiService {
   }
 }
 
-const apiService = new ApiService();
-
 const eventNames = {
   submit: "submit",
   selectAll: "selectAll",
@@ -104,6 +102,7 @@ class App {
 
   constructor(rootRef) {
     this.rootElement = rootRef;
+    this.apiService = new ApiService();
 
     const elemenstInit = new Elements({
       onSubmit: this.onSubmit,
@@ -136,9 +135,9 @@ class App {
     const todo = e.target.input.value.trim();
     if (todo === "") return;
 
-    apiService
+    this.apiService
       .addTodo({ id: getRandomId(), todo: todo, completed: false })
-      .then(() => this.render())
+      .then(({ todos }) => this.render(todos))
       .catch(console.log);
 
     e.currentTarget.reset();
@@ -150,7 +149,7 @@ class App {
 
   onSelect = (e) => {
     const checkboxIndex = e.target.dataset.index;
-    apiService
+    this.apiService
       .updateTodo(checkboxIndex, undefined, true)
       .then(({ todos }) => {
         this.render(todos);
@@ -159,15 +158,15 @@ class App {
   };
 
   onSelectAll = () => {
-    apiService
+    this.apiService
       .fetchTodo()
       .then(({ todos }) => {
         const isSelectAll = todos.every((e) => e.completed);
 
         if (isSelectAll) {
-          apiService.selectAll(isSelectAll).catch(console.log);
+          this.apiService.selectAll(isSelectAll).catch(console.log);
         } else {
-          apiService.selectAll(isSelectAll).catch(console.log);
+          this.apiService.selectAll(isSelectAll).catch(console.log);
         }
         this.render();
       })
@@ -190,7 +189,7 @@ class App {
   };
 
   onClearCompleted = () => {
-    apiService.clearCompleted().then(({ todos }) => this.render(todos));
+    this.apiService.clearCompleted().then(({ todos }) => this.render(todos));
   };
 
   onShowUpdateInput = (e) => {
@@ -210,7 +209,7 @@ class App {
 
   deleteTodo(e) {
     const liIndex = e.target.dataset.index;
-    apiService
+    this.apiService
       .deleteTodo(liIndex)
       .then(() => this.render())
       .catch(console.log);
@@ -225,7 +224,7 @@ class App {
       return;
     }
 
-    apiService
+    this.apiService
       .updateTodo(index, newTodo)
       .then(({ todos }) => this.render(todos))
       .catch(console.log);
@@ -330,7 +329,7 @@ class App {
 
   async render(todos) {
     if (!todos) {
-      const data = await apiService.fetchTodo();
+      const data = await this.apiService.fetchTodo();
       todos = data.todos;
     }
 
