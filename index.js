@@ -1,67 +1,23 @@
 const getRandomId = () => Math.floor(Math.random() * Date.now());
 
-class ApiService {
-  url = "http://localhost:8050";
+const callApi = (path, credentials) => {
+  credentials?.body && (credentials.body = JSON.stringify(credentials.body));
 
-  fetchTodo() {
-    return fetch(`${this.url}/todos`).then((d) => d.json());
-  }
-
-  addTodo(body) {
-    return fetch(`${this.url}/todos`, {
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      method: "POST",
-      body: JSON.stringify(body),
-    }).then((d) => d.json());
-  }
-
-  deleteTodo(id) {
-    return fetch(`${this.url}/todos?todoId=${id}`, {
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      method: "DELETE",
-    });
-  }
-
-  updateTodo(id, newTodo, select = false) {
-    return fetch(`${this.url}/todos?todoId=${id}`, {
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      method: "PATCH",
-      body: JSON.stringify({
-        updatedTodo: newTodo,
-        select,
-      }),
-    }).then((d) => d.json());
-  }
-
-  selectAll() {
-    return fetch(`${this.url}/todos/select.all`, {
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      method: "POST",
-    }).then((d) => d.json());
-  }
-
-  clearCompleted() {
-    return fetch(`${this.url}/todos/clear.completed`, {
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      method: "POST",
-    }).then((d) => d.json());
-  }
-}
+  const url = "http://localhost:8050";
+  const options = {
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    method: "GET",
+  };
+  return fetch(`${url}${path}`, { ...options, ...credentials }).then((res) => {
+    if (!res.ok) {
+      throw new Error(`Something went wrong! status: ${res.status}.`);
+    }
+    return credentials?.method === "DELETE" ? null : res.json();
+  });
+};
 
 const eventNames = {
   submit: "submit",
@@ -102,7 +58,6 @@ class App {
 
   constructor(rootRef) {
     this.rootElement = rootRef;
-    this.apiService = new ApiService();
 
     const elemenstInit = new Elements({
       onSubmit: this.onSubmit,
@@ -135,8 +90,10 @@ class App {
     const todo = e.target.input.value.trim();
     if (todo === "") return;
 
-    this.apiService
-      .addTodo({ id: getRandomId(), todo: todo, completed: false })
+    callApi("/todos", {
+      method: "POST",
+      body: { id: getRandomId(), todo: todo, completed: false },
+    })
       .then(({ todos }) => this.render(todos))
       .catch(console.log);
 
@@ -149,27 +106,17 @@ class App {
 
   onSelect = (e) => {
     const checkboxIndex = e.target.dataset.index;
-    this.apiService
-      .updateTodo(checkboxIndex, undefined, true)
-      .then(({ todos }) => {
-        this.render(todos);
-      })
+    callApi(`/todos?todoId=${checkboxIndex}`, {
+      method: "PATCH",
+      body: { select: true },
+    })
+      .then(({ todos }) => this.render(todos))
       .catch(console.log);
   };
 
   onSelectAll = () => {
-    this.apiService
-      .fetchTodo()
-      .then(({ todos }) => {
-        const isSelectAll = todos.every((e) => e.completed);
-
-        if (isSelectAll) {
-          this.apiService.selectAll(isSelectAll).catch(console.log);
-        } else {
-          this.apiService.selectAll(isSelectAll).catch(console.log);
-        }
-        this.render();
-      })
+    callApi("/todos/select.all", { method: "POST" })
+      .then(({ todos }) => this.render(todos))
       .catch(console.log);
   };
 
@@ -189,7 +136,9 @@ class App {
   };
 
   onClearCompleted = () => {
-    this.apiService.clearCompleted().then(({ todos }) => this.render(todos));
+    callApi("/todos/clear.completed", { method: "POST" }).then(({ todos }) =>
+      this.render(todos)
+    );
   };
 
   onShowUpdateInput = (e) => {
@@ -209,8 +158,7 @@ class App {
 
   deleteTodo(e) {
     const liIndex = e.target.dataset.index;
-    this.apiService
-      .deleteTodo(liIndex)
+    callApi(`/todos?todoId=${liIndex}`, { method: "DELETE" })
       .then(() => this.render())
       .catch(console.log);
   }
@@ -224,8 +172,10 @@ class App {
       return;
     }
 
-    this.apiService
-      .updateTodo(index, newTodo)
+    callApi(`/todos?todoId=${index}`, {
+      method: "PATCH",
+      body: { updatedTodo: newTodo },
+    })
       .then(({ todos }) => this.render(todos))
       .catch(console.log);
 
@@ -329,7 +279,7 @@ class App {
 
   async render(todos) {
     if (!todos) {
-      const data = await this.apiService.fetchTodo();
+      const data = await callApi("/todos");
       todos = data.todos;
     }
 
