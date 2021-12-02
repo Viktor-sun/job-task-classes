@@ -1,22 +1,24 @@
 const getRandomId = () => Math.floor(Math.random() * Date.now());
 
-const callApi = (path, credentials) => {
-  credentials?.body && (credentials.body = JSON.stringify(credentials.body));
+const callApi = (path, options) => {
+  options?.body && (options.body = JSON.stringify(options.body));
 
   const url = "http://localhost:8050";
-  const options = {
+  const defaultOptions = {
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
     },
     method: "GET",
   };
-  return fetch(`${url}${path}`, { ...options, ...credentials }).then((res) => {
-    if (!res.ok) {
-      throw new Error(`Something went wrong! status: ${res.status}.`);
-    }
-    return credentials?.method === "DELETE" ? null : res.json();
-  });
+  return fetch(`${url}${path}`, { ...defaultOptions, ...options })
+    .then((r) => r.json())
+    .then((d) => {
+      if (d.status === "error") {
+        return Promise.reject(d);
+      }
+      return d;
+    });
 };
 
 const eventNames = {
@@ -55,6 +57,7 @@ class EventEmitter {
 
 class App {
   elements = null;
+  todos = null;
 
   constructor(rootRef) {
     this.rootElement = rootRef;
@@ -77,6 +80,9 @@ class App {
       btnClear: elemenstInit.createBtnClear(),
       sortButtonList: elemenstInit.createSortButtonList(),
       footer: elemenstInit.createFooter(),
+      errorNotice: elemenstInit.createErrorNotice(
+        "Oops..! Something went wrong"
+      ),
     };
   }
 
@@ -95,7 +101,7 @@ class App {
       body: { id: getRandomId(), todo: todo, completed: false },
     })
       .then(({ todos }) => this.render(todos))
-      .catch(console.log);
+      .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
 
     e.currentTarget.reset();
   };
@@ -111,34 +117,46 @@ class App {
       body: { select: true },
     })
       .then(({ todos }) => this.render(todos))
-      .catch(console.log);
+      .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
   };
 
   onSelectAll = () => {
+    const isAllCompleted = this.todos.every(({ completed }) => completed);
+    if (isAllCompleted) {
+      callApi("/todos/unselect.all", { method: "POST" })
+        .then(({ todos }) => {
+          this.render(todos);
+        })
+        .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
+
+      return;
+    }
     callApi("/todos/select.all", { method: "POST" })
-      .then(({ todos }) => this.render(todos))
-      .catch(console.log);
+      .then(({ todos }) => {
+        this.render(todos);
+      })
+      .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
   };
 
   onButtonSelectAll = () => {
     localStorage.setItem("filtrationState", "all");
-    this.render();
+    this.render(this.todos);
   };
 
   onButtonSelectActive = () => {
     localStorage.setItem("filtrationState", "active");
-    this.render();
+    this.render(this.todos);
   };
 
   onButtonSelectCompleted = () => {
     localStorage.setItem("filtrationState", "completed");
-    this.render();
+    this.render(this.todos);
   };
 
   onClearCompleted = () => {
-    callApi("/todos/clear.completed", { method: "POST" }).then(({ todos }) =>
-      this.render(todos)
-    );
+    callApi("/todos/clear.completed", { method: "POST" })
+      .then(({ todos }) => this.render(todos))
+      .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
   };
 
   onShowUpdateInput = (e) => {
@@ -159,8 +177,10 @@ class App {
   deleteTodo(e) {
     const liIndex = e.target.dataset.index;
     callApi(`/todos?todoId=${liIndex}`, { method: "DELETE" })
-      .then(() => this.render())
-      .catch(console.log);
+      .then(({ todos }) => this.render(todos))
+      .catch((err) => {
+        this.showErrorNotice(`Oops... ${err.message}!`);
+      });
   }
 
   updateTodo(e) {
@@ -177,7 +197,7 @@ class App {
       body: { updatedTodo: newTodo },
     })
       .then(({ todos }) => this.render(todos))
-      .catch(console.log);
+      .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
 
     e.target.classList.add("isHidden");
   }
@@ -252,6 +272,13 @@ class App {
       .classList.add("isHidden");
   }
 
+  showErrorNotice(text) {
+    const { errorNotice } = this.elements;
+    errorNotice.classList.add("visible");
+    text ? (errorNotice.textContent = text) : errorNotice.textContent;
+    setTimeout(() => errorNotice.classList.remove("visible"), 5000);
+  }
+
   createMainMarcup() {
     const {
       container,
@@ -262,6 +289,7 @@ class App {
       btnClear,
       sortButtonList,
       footer,
+      errorNotice,
     } = this.elements;
 
     footer.appendChild(counterUnfulfilledTodo);
@@ -273,15 +301,21 @@ class App {
 
     container.appendChild(title);
     container.appendChild(form);
+    container.appendChild(errorNotice);
 
     this.rootElement.appendChild(container);
   }
 
   async render(todos) {
     if (!todos) {
-      const data = await callApi("/todos");
-      todos = data.todos;
+      try {
+        const data = await callApi("/todos");
+        todos = data.todos;
+      } catch (err) {
+        this.showErrorNotice(`Oops... ${err.message}!`);
+      }
     }
+    this.todos = todos;
 
     const { todoContainer } = this.elements;
     todoContainer.innerHTML = "";
@@ -539,6 +573,13 @@ class Elements extends EventEmitter {
     ul.classList.add("sortButtonList");
     ul.append(...btnItems);
     return ul;
+  }
+
+  createErrorNotice(message) {
+    const notice = document.createElement("div");
+    notice.classList.add("error");
+    notice.textContent = message;
+    return notice;
   }
 }
 

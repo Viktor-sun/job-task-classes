@@ -252,3 +252,28 @@ body {
 .isHidden {
   opacity: 0;
 }
+
+.error {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 250ms ease-in-out, visibility 250ms ease-in-out;
+}
+
+.error.visible {
+  position: absolute;
+  top: 50px;
+  right: 35px;
+  padding: 10px 30px;
+  max-width: 500px;
+  width: 100%;
+  margin: 10px;
+  color: #ba3939;
+  background: #ffe0e0;
+  border: 1px solid #a33a3a;
+  font-size: 33px;
+  opacity: 1;
+  visibility: visible;
+  background-image: url("../assets/svg/error_icon.svg");
+  background-repeat: no-repeat;
+  background-position: center right 3%;
+}
