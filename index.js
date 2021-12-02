@@ -14,7 +14,7 @@ const callApi = (path, options) => {
   return fetch(`${url}${path}`, { ...defaultOptions, ...options })
     .then((r) => r.json())
     .then((d) => {
-      if (d.status === "error") {
+      if (d.code < 200 && d.code > 399) {
         return Promise.reject(d);
       }
       return d;
@@ -279,6 +279,18 @@ class App {
     setTimeout(() => errorNotice.classList.remove("visible"), 5000);
   }
 
+  showFooterAndBtnSelectAll(todos) {
+    const { form, footer } = this.elements;
+    const btnSelectAll = form.querySelector(".btnSelectAll");
+    if (todos.length === 0) {
+      footer.classList.add("visible");
+      btnSelectAll.classList.add("visible");
+      return;
+    }
+    footer.classList.remove("visible");
+    btnSelectAll.classList.remove("visible");
+  }
+
   createMainMarcup() {
     const {
       container,
@@ -306,20 +318,7 @@ class App {
     this.rootElement.appendChild(container);
   }
 
-  async render(todos) {
-    if (!todos) {
-      try {
-        const data = await callApi("/todos");
-        todos = data.todos;
-      } catch (err) {
-        this.showErrorNotice(`Oops... ${err.message}!`);
-      }
-    }
-    this.todos = todos;
-
-    const { todoContainer } = this.elements;
-    todoContainer.innerHTML = "";
-
+  updateMarkup(todos) {
     const todosList = new Todos(
       {
         onDelete: this.onDelete,
@@ -331,11 +330,35 @@ class App {
       todos
     ).getTodoList();
 
+    const { todoContainer } = this.elements;
+    todoContainer.innerHTML = "";
     todoContainer.insertAdjacentElement("beforeend", todosList);
     this.changeStyleBtnSelectAll(todos);
     this.changeCounter(todos);
     this.showBtnClear(todos);
     this.showActiveBtnOnSort();
+    this.showFooterAndBtnSelectAll(todos);
+  }
+
+  render(todos) {
+    const fetchTodo = async () => {
+      try {
+        const { todos } = await callApi("/todos");
+        return todos;
+      } catch (err) {
+        this.showErrorNotice(`Oops... ${err.message}!`);
+      }
+    };
+
+    if (!todos) {
+      fetchTodo().then((todos) => {
+        this.todos = todos;
+        this.updateMarkup(this.todos);
+      });
+      return;
+    }
+    this.todos = todos;
+    this.updateMarkup(this.todos);
   }
 }
 
