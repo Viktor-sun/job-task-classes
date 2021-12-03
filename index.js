@@ -1,5 +1,44 @@
 const getRandomId = () => Math.floor(Math.random() * Date.now());
 
+// Redux==========================================
+const createStore = (reducer, initialState) => {
+  let state = initialState;
+  const arrFoo = [];
+
+  return {
+    getState: () => state,
+    dispatch: (action) => {
+      state = reducer(state, action);
+      arrFoo.forEach((f) => f());
+    },
+    subscribe: (cb) => typeof cb === "function" && arrFoo.push(cb),
+  };
+};
+
+const reducer = (state = [], { type, payload }) => {
+  switch (type) {
+    case "FETCH":
+      return payload;
+    case "ADD":
+      return payload;
+    case "DELETE":
+      return payload;
+    case "UPDATE":
+      return payload;
+    case "SELECT":
+      return payload;
+    case "SELECT_ALL":
+      return payload;
+    case "CLEAR_COMPLETED":
+      return payload;
+    default:
+      return state;
+  }
+};
+
+const store = createStore(reducer, []);
+// Redux=================================================
+
 const callApi = (path, options) => {
   options?.body && (options.body = JSON.stringify(options.body));
 
@@ -57,7 +96,7 @@ class EventEmitter {
 
 class App {
   elements = null;
-  todos = null;
+  store = null;
 
   constructor(rootRef) {
     this.rootElement = rootRef;
@@ -88,7 +127,15 @@ class App {
 
   start() {
     this.createMainMarcup();
-    this.render();
+    store.subscribe(() => (this.store = store.getState()));
+    this.fetchTodo();
+  }
+
+  fetchTodo() {
+    callApi("/todos").then(({ todos }) => {
+      store.dispatch({ type: "FETCH", payload: todos });
+      this.render();
+    });
   }
 
   onSubmit = (e) => {
@@ -100,7 +147,10 @@ class App {
       method: "POST",
       body: { id: getRandomId(), todo: todo, completed: false },
     })
-      .then(({ todos }) => this.render(todos))
+      .then(({ todos }) => {
+        store.dispatch({ type: "ADD", payload: todos });
+        this.render();
+      })
       .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
 
     e.currentTarget.reset();
@@ -116,16 +166,21 @@ class App {
       method: "PATCH",
       body: { select: true },
     })
-      .then(({ todos }) => this.render(todos))
+      .then(({ todos }) => {
+        store.dispatch({ type: "SELECT", payload: todos });
+        this.render();
+      })
       .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
   };
 
   onSelectAll = () => {
-    const isAllCompleted = this.todos.every(({ completed }) => completed);
+    const isAllCompleted = this.store.every(({ completed }) => completed);
+
     if (isAllCompleted) {
       callApi("/todos/unselect.all", { method: "POST" })
         .then(({ todos }) => {
-          this.render(todos);
+          store.dispatch({ type: "SELECT_ALL", payload: todos });
+          this.render();
         })
         .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
 
@@ -133,29 +188,33 @@ class App {
     }
     callApi("/todos/select.all", { method: "POST" })
       .then(({ todos }) => {
-        this.render(todos);
+        store.dispatch({ type: "SELECT_ALL", payload: todos });
+        this.render();
       })
       .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
   };
 
   onButtonSelectAll = () => {
     localStorage.setItem("filtrationState", "all");
-    this.render(this.todos);
+    this.render();
   };
 
   onButtonSelectActive = () => {
     localStorage.setItem("filtrationState", "active");
-    this.render(this.todos);
+    this.render();
   };
 
   onButtonSelectCompleted = () => {
     localStorage.setItem("filtrationState", "completed");
-    this.render(this.todos);
+    this.render();
   };
 
   onClearCompleted = () => {
     callApi("/todos/clear.completed", { method: "POST" })
-      .then(({ todos }) => this.render(todos))
+      .then(({ todos }) => {
+        store.dispatch({ type: "CLEAR_COMPLETED", payload: todos });
+        this.render();
+      })
       .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
   };
 
@@ -177,7 +236,10 @@ class App {
   deleteTodo(e) {
     const liIndex = e.target.dataset.index;
     callApi(`/todos?todoId=${liIndex}`, { method: "DELETE" })
-      .then(({ todos }) => this.render(todos))
+      .then(({ todos }) => {
+        store.dispatch({ type: "DELETE", payload: todos });
+        this.render();
+      })
       .catch((err) => {
         this.showErrorNotice(`Oops... ${err.message}!`);
       });
@@ -196,25 +258,30 @@ class App {
       method: "PATCH",
       body: { updatedTodo: newTodo },
     })
-      .then(({ todos }) => this.render(todos))
+      .then(({ todos }) => {
+        store.dispatch({ type: "UPDATE", payload: todos });
+        this.render();
+      })
       .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
 
     e.target.classList.add("isHidden");
   }
 
-  changeCounter(todos) {
-    const activeElements = todos.filter(({ completed }) => !completed).length;
+  changeCounter() {
+    const activeElements = this.store.filter(
+      ({ completed }) => !completed
+    ).length;
     const isMoreThanOneActiveElements =
-      todos.filter(({ completed }) => !completed).length > 1;
+      this.store.filter(({ completed }) => !completed).length > 1;
 
     this.elements.counterUnfulfilledTodo.textContent = `${activeElements} item${
       isMoreThanOneActiveElements ? "s" : ""
     } left`;
   }
 
-  changeStyleBtnSelectAll(todos) {
+  changeStyleBtnSelectAll() {
     const btnSelectAll = this.elements.form.querySelector(".btnSelectAll");
-    const isAllCompleted = todos.every(({ completed }) => completed);
+    const isAllCompleted = this.store.every(({ completed }) => completed);
     if (isAllCompleted) {
       btnSelectAll.classList.add("isSelect");
       return;
@@ -222,9 +289,9 @@ class App {
     btnSelectAll.classList.remove("isSelect");
   }
 
-  showBtnClear(todos) {
+  showBtnClear() {
     const { btnClear } = this.elements;
-    const hasCompletedTodo = todos.some((todo) => todo.completed);
+    const hasCompletedTodo = this.store.some((todo) => todo.completed);
     if (hasCompletedTodo) {
       btnClear.classList.remove("isHidden");
     } else {
@@ -279,10 +346,10 @@ class App {
     setTimeout(() => errorNotice.classList.remove("visible"), 5000);
   }
 
-  showFooterAndBtnSelectAll(todos) {
+  showFooterAndBtnSelectAll() {
     const { form, footer } = this.elements;
     const btnSelectAll = form.querySelector(".btnSelectAll");
-    if (todos.length === 0) {
+    if (this.store.length === 0) {
       footer.classList.add("visible");
       btnSelectAll.classList.add("visible");
       return;
@@ -318,7 +385,7 @@ class App {
     this.rootElement.appendChild(container);
   }
 
-  updateMarkup(todos) {
+  updateMarkup() {
     const todosList = new Todos(
       {
         onDelete: this.onDelete,
@@ -327,38 +394,38 @@ class App {
         onBlur: this.onBlur,
         onKeyDown: this.onKeyDown,
       },
-      todos
+      this.store
     ).getTodoList();
 
     const { todoContainer } = this.elements;
     todoContainer.innerHTML = "";
     todoContainer.insertAdjacentElement("beforeend", todosList);
-    this.changeStyleBtnSelectAll(todos);
-    this.changeCounter(todos);
-    this.showBtnClear(todos);
+    this.changeStyleBtnSelectAll();
+    this.changeCounter();
+    this.showBtnClear();
     this.showActiveBtnOnSort();
-    this.showFooterAndBtnSelectAll(todos);
+    this.showFooterAndBtnSelectAll();
   }
 
-  render(todos) {
-    const fetchTodo = async () => {
-      try {
-        const { todos } = await callApi("/todos");
-        return todos;
-      } catch (err) {
-        this.showErrorNotice(`Oops... ${err.message}!`);
-      }
-    };
+  render() {
+    // const fetchTodo = async () => {
+    //   try {
+    //     const { todos } = await callApi("/todos");
+    //     return todos;
+    //   } catch (err) {
+    //     this.showErrorNotice(`Oops... ${err.message}!`);
+    //   }
+    // };
 
-    if (!todos) {
-      fetchTodo().then((todos) => {
-        this.todos = todos;
-        this.updateMarkup(this.todos);
-      });
-      return;
-    }
-    this.todos = todos;
-    this.updateMarkup(this.todos);
+    // if (!todos) {
+    //   fetchTodo().then((todos) => {
+    //     this.todos = todos;
+    //     this.updateMarkup(this.todos);
+    //   });
+    //   return;
+    // }
+    // this.todos = todos;
+    this.updateMarkup();
   }
 }
 
