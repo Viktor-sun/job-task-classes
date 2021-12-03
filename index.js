@@ -1,5 +1,6 @@
 const getRandomId = () => Math.floor(Math.random() * Date.now());
-
+// console.log(window.history);
+// console.log(window.location.href);
 // Redux==========================================
 const createStore = (reducer, initialState) => {
   let state = initialState;
@@ -15,9 +16,17 @@ const createStore = (reducer, initialState) => {
   };
 };
 
-const reducer = (state = [], { type, payload }) => {
+const combineReducers = (reducersMap) => (state, action) => {
+  const nextState = {};
+  Object.entries(reducersMap).forEach(([key, reducer]) => {
+    nextState[key] = reducer(state[key], action);
+  });
+  return nextState;
+};
+
+const todosReducer = (state = [], { type, payload }) => {
   switch (type) {
-    case "FETCH":
+    case "FETCH_TODOS":
       return payload;
     case "ADD":
       return payload;
@@ -36,7 +45,36 @@ const reducer = (state = [], { type, payload }) => {
   }
 };
 
-const store = createStore(reducer, []);
+const filtrationReducer = (state = "all", { type, payload }) => {
+  switch (type) {
+    case "GET_FILTRATION":
+      const filtrationState = localStorage.getItem("filtrationState");
+      if (filtrationState) {
+        localStorage.setItem("filtrationState", filtrationState);
+        return filtrationState;
+      }
+      localStorage.setItem("filtrationState", state);
+      return state;
+    case "ALL":
+      localStorage.setItem("filtrationState", payload);
+      return payload;
+    case "ACTIVE":
+      localStorage.setItem("filtrationState", payload);
+      return payload;
+    case "COMPLETED":
+      localStorage.setItem("filtrationState", payload);
+      return payload;
+    default:
+      return state;
+  }
+};
+
+const reducer = combineReducers({
+  todos: todosReducer,
+  filtration: filtrationReducer,
+});
+const store = createStore(reducer, {});
+
 // Redux=================================================
 
 const callApi = (path, options) => {
@@ -127,15 +165,21 @@ class App {
 
   start() {
     this.createMainMarcup();
-    store.subscribe(() => (this.store = store.getState()));
-    this.fetchTodo();
+    store.subscribe(() => {
+      this.store = store.getState();
+      console.log(this.store);
+    });
+    this.fillStore();
   }
 
-  fetchTodo() {
-    callApi("/todos").then(({ todos }) => {
-      store.dispatch({ type: "FETCH", payload: todos });
-      this.render();
-    });
+  fillStore() {
+    store.dispatch({ type: "GET_FILTRATION" });
+    callApi("/todos")
+      .then(({ todos }) => {
+        store.dispatch({ type: "FETCH_TODOS", payload: todos });
+        this.render();
+      })
+      .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
   }
 
   onSubmit = (e) => {
@@ -174,7 +218,7 @@ class App {
   };
 
   onSelectAll = () => {
-    const isAllCompleted = this.store.every(({ completed }) => completed);
+    const isAllCompleted = this.store.todos.every(({ completed }) => completed);
 
     if (isAllCompleted) {
       callApi("/todos/unselect.all", { method: "POST" })
@@ -195,17 +239,17 @@ class App {
   };
 
   onButtonSelectAll = () => {
-    localStorage.setItem("filtrationState", "all");
+    store.dispatch({ type: "ALL", payload: "all" });
     this.render();
   };
 
   onButtonSelectActive = () => {
-    localStorage.setItem("filtrationState", "active");
+    store.dispatch({ type: "ACTIVE", payload: "active" });
     this.render();
   };
 
   onButtonSelectCompleted = () => {
-    localStorage.setItem("filtrationState", "completed");
+    store.dispatch({ type: "COMPLETED", payload: "completed" });
     this.render();
   };
 
@@ -268,11 +312,11 @@ class App {
   }
 
   changeCounter() {
-    const activeElements = this.store.filter(
+    const activeElements = this.store.todos.filter(
       ({ completed }) => !completed
     ).length;
     const isMoreThanOneActiveElements =
-      this.store.filter(({ completed }) => !completed).length > 1;
+      this.store.todos.filter(({ completed }) => !completed).length > 1;
 
     this.elements.counterUnfulfilledTodo.textContent = `${activeElements} item${
       isMoreThanOneActiveElements ? "s" : ""
@@ -281,7 +325,7 @@ class App {
 
   changeStyleBtnSelectAll() {
     const btnSelectAll = this.elements.form.querySelector(".btnSelectAll");
-    const isAllCompleted = this.store.every(({ completed }) => completed);
+    const isAllCompleted = this.store.todos.every(({ completed }) => completed);
     if (isAllCompleted) {
       btnSelectAll.classList.add("isSelect");
       return;
@@ -291,7 +335,7 @@ class App {
 
   showBtnClear() {
     const { btnClear } = this.elements;
-    const hasCompletedTodo = this.store.some((todo) => todo.completed);
+    const hasCompletedTodo = this.store.todos.some((todo) => todo.completed);
     if (hasCompletedTodo) {
       btnClear.classList.remove("isHidden");
     } else {
@@ -300,13 +344,12 @@ class App {
   }
 
   showActiveBtnOnSort() {
-    const filtrationState = localStorage.getItem("filtrationState");
     const { sortButtonList } = this.elements;
     const buttonAll = sortButtonList.querySelector("#buttonAll");
     const butttonActive = sortButtonList.querySelector("#butttonActive");
     const buttonCompleted = sortButtonList.querySelector("#buttonCompleted");
 
-    switch (filtrationState) {
+    switch (this.store.filtration) {
       case "all":
         buttonAll.classList.add("activeSortButton");
         butttonActive.classList.remove("activeSortButton");
@@ -349,7 +392,7 @@ class App {
   showFooterAndBtnSelectAll() {
     const { form, footer } = this.elements;
     const btnSelectAll = form.querySelector(".btnSelectAll");
-    if (this.store.length === 0) {
+    if (this.store.todos.length === 0) {
       footer.classList.add("visible");
       btnSelectAll.classList.add("visible");
       return;
@@ -394,7 +437,7 @@ class App {
         onBlur: this.onBlur,
         onKeyDown: this.onKeyDown,
       },
-      this.store
+      this.store.todos
     ).getTodoList();
 
     const { todoContainer } = this.elements;
@@ -408,23 +451,6 @@ class App {
   }
 
   render() {
-    // const fetchTodo = async () => {
-    //   try {
-    //     const { todos } = await callApi("/todos");
-    //     return todos;
-    //   } catch (err) {
-    //     this.showErrorNotice(`Oops... ${err.message}!`);
-    //   }
-    // };
-
-    // if (!todos) {
-    //   fetchTodo().then((todos) => {
-    //     this.todos = todos;
-    //     this.updateMarkup(this.todos);
-    //   });
-    //   return;
-    // }
-    // this.todos = todos;
     this.updateMarkup();
   }
 }
