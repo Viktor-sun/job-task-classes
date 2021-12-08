@@ -206,9 +206,10 @@ class App {
 
   onSelect = (e) => {
     const checkboxIndex = e.target.dataset.index;
+    const isChecked = e.target;
     callApi(`/todos?todoId=${checkboxIndex}`, {
       method: "PATCH",
-      body: { select: true },
+      body: { select: isChecked },
     })
       .then(({ todos }) => {
         store.dispatch({ type: "SELECT", payload: todos });
@@ -699,5 +700,126 @@ class Elements extends EventEmitter {
   }
 }
 
-const todos = new App(document.getElementById("root"));
-todos.start();
+const todosPage = new App(document.getElementById("root"));
+// todosPage.start();
+
+class ElementsForAuth {
+  createContainer(className) {
+    const container = document.createElement("div");
+    container.classList.add(className);
+    return container;
+  }
+
+  createTitle(title) {
+    const h1 = document.createElement("h1");
+    h1.textContent = title;
+    h1.classList.add("title");
+    return h1;
+  }
+
+  createForm() {
+    const form = document.createElement("form");
+    form.classList.add("authForm");
+
+    const inputLogin = document.createElement("input");
+    inputLogin.setAttribute("type", "text");
+    inputLogin.setAttribute("id", "login");
+    inputLogin.setAttribute("autocomplete", "off");
+    inputLogin.setAttribute("placeholder", "Enter login");
+    inputLogin.classList.add("input");
+
+    const inputPassword = document.createElement("input");
+    inputPassword.setAttribute("type", "password");
+    inputPassword.setAttribute("id", "password");
+    inputPassword.setAttribute("autocomplete", "off");
+    inputPassword.setAttribute("placeholder", "Enter password");
+    inputPassword.classList.add("input");
+
+    const btn = document.createElement("button");
+    btn.setAttribute("type", "submit");
+    btn.classList.add("authButton");
+    btn.textContent = "send";
+
+    form.appendChild(inputLogin);
+    form.appendChild(inputPassword);
+    form.appendChild(btn);
+
+    return form;
+  }
+}
+
+class RegistrationPage {
+  elements = null;
+  constructor(rootRef) {
+    this.rootElement = rootRef;
+
+    const elemenstInit = new ElementsForAuth();
+    this.elements = {
+      container: elemenstInit.createContainer("container"),
+      title: elemenstInit.createTitle("log up"),
+      form: elemenstInit.createForm(),
+    };
+  }
+
+  start() {
+    this.createMarcup();
+    this.submit();
+  }
+
+  createMarcup() {
+    const { container, title, form } = this.elements;
+
+    container.appendChild(title);
+    container.appendChild(form);
+    this.rootElement.appendChild(container);
+  }
+
+  submit() {
+    const { form } = this.elements;
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      console.log(e);
+    });
+  }
+}
+
+const registrationPage = new RegistrationPage(document.getElementById("root"));
+registrationPage.start();
+
+class LoginPage {
+  elements = null;
+  constructor(rootRef) {
+    this.rootElement = rootRef;
+
+    const elemenstInit = new ElementsForAuth();
+    this.elements = {
+      container: elemenstInit.createContainer("container"),
+      title: elemenstInit.createTitle("log in"),
+      form: elemenstInit.createForm(),
+    };
+  }
+
+  start() {
+    this.createMarcup();
+    this.submit();
+  }
+
+  createMarcup() {
+    const { container, title, form } = this.elements;
+
+    container.appendChild(title);
+    container.appendChild(form);
+    this.rootElement.appendChild(container);
+  }
+
+  submit() {
+    const { form } = this.elements;
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      console.log(e);
+    });
+  }
+}
+
+const login = new LoginPage(document.getElementById("root"));
+// login.start();

@@ -284,3 +284,30 @@ body {
 .visible {
   display: none;
 }
+
+.authForm {
+  padding: 31px 20px;
+  background-color: #fefefe;
+  box-shadow: 1px 23px 28px -3px rgb(114 114 114 / 20%);
+  border: solid 2px #dbdbdb;
+  border-top: none;
+}
+
+.authButton {
+  display: inline-block;
+  width: 100%;
+  color: inherit;
+  margin-top: 30px;
+  padding: 3px 7px;
+  text-decoration: none;
+  border: 1px solid #efd5d5;
+  border-radius: 10px;
+  font-size: 30px;
+  background-color: rgba(175, 47, 47, 0.15);
+  cursor: pointer;
+  transition: background-color 250ms ease;
+}
+
+.authButton:hover {
+  background-color: rgba(175, 47, 47, 0.3);
+}
