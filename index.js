@@ -1,6 +1,5 @@
 const getRandomId = () => Math.floor(Math.random() * Date.now());
-// console.log(window.history);
-// console.log(window.location.href);
+
 // Redux==========================================
 const createStore = (reducer, initialState) => {
   let state = initialState;
@@ -110,6 +109,13 @@ const eventNames = {
   showUpdateInput: "showUpdateInput",
   blur: "blur",
   keyDown: "keyDown",
+  btnRedirectInForm: "btnRedirectInForm",
+};
+
+const routes = {
+  logup: "/logup",
+  login: "/login",
+  todos: "/todos",
 };
 
 class EventEmitter {
@@ -135,6 +141,8 @@ class EventEmitter {
 class App {
   elements = null;
   store = null;
+  registrationPage = null;
+  loginPage = null;
 
   constructor(rootRef) {
     this.rootElement = rootRef;
@@ -161,9 +169,23 @@ class App {
         "Oops..! Something went wrong"
       ),
     };
+
+    this.registrationPage = new RegistrationPage(rootRef, {
+      onRedirect: this.onRedirect,
+    });
+    this.loginPage = new LoginPage(rootRef, {
+      onRedirect: this.onRedirect,
+    });
+
+    window.addEventListener("popstate", () => this.routing());
+    window.addEventListener("load", () => this.routing());
   }
 
   start() {
+    this.routing();
+  }
+
+  go() {
     this.createMainMarcup();
     store.subscribe(() => {
       this.store = store.getState();
@@ -276,6 +298,14 @@ class App {
     if (e.code === "Enter") {
       this.updateTodo(e);
     }
+  };
+
+  onAuthorization = () => {};
+
+  onRedirect = (e) => {
+    const route = e.target.dataset.route;
+    history.pushState(null, null, route);
+    this.routing();
   };
 
   deleteTodo(e) {
@@ -453,6 +483,29 @@ class App {
 
   render() {
     this.updateMarkup();
+  }
+
+  routing() {
+    const location = window.location.pathname;
+
+    switch (location) {
+      case routes.todos:
+        this.rootElement.innerHTML = "";
+        this.go();
+        break;
+      case routes.logup:
+        this.rootElement.innerHTML = "";
+        this.registrationPage.go();
+        break;
+      case routes.login:
+        this.rootElement.innerHTML = "";
+        this.loginPage.go();
+        break;
+
+      default:
+        this.registrationPage.go();
+        break;
+    }
   }
 }
 
@@ -700,10 +753,88 @@ class Elements extends EventEmitter {
   }
 }
 
-const todosPage = new App(document.getElementById("root"));
-// todosPage.start();
+class RegistrationPage {
+  elements = null;
+  constructor(rootRef, handlers) {
+    this.rootElement = rootRef;
 
-class ElementsForAuth {
+    const elemenstInit = new ElementsForAuth(handlers);
+    this.elements = {
+      container: elemenstInit.createContainer("container"),
+      title: elemenstInit.createTitle("log up"),
+      form: elemenstInit.createForm({
+        textContentForRedirectBtn: "Log In",
+        route: routes.login,
+      }),
+    };
+  }
+
+  go() {
+    this.createMarcup();
+  }
+
+  createMarcup() {
+    const { container, title, form } = this.elements;
+
+    form.addEventListener("submit", this.onSubmit);
+    container.appendChild(title);
+    container.appendChild(form);
+    this.rootElement.appendChild(container);
+  }
+
+  onSubmit = (e) => {
+    e.preventDefault();
+    console.log(e);
+  };
+}
+
+class LoginPage {
+  elements = null;
+  constructor(rootRef, handlers) {
+    this.rootElement = rootRef;
+
+    const elemenstInit = new ElementsForAuth(handlers);
+    this.elements = {
+      container: elemenstInit.createContainer("container"),
+      title: elemenstInit.createTitle("log in"),
+      form: elemenstInit.createForm({
+        textContentForRedirectBtn: "Log Up",
+        route: routes.logup,
+      }),
+    };
+  }
+
+  go() {
+    this.createMarcup();
+  }
+
+  createMarcup() {
+    const { container, title, form } = this.elements;
+
+    form.addEventListener("submit", this.onSubmit);
+    container.appendChild(title);
+    container.appendChild(form);
+    this.rootElement.appendChild(container);
+  }
+
+  onSubmit = (e) => {
+    e.preventDefault();
+    console.log(e);
+  };
+}
+
+class ElementsForAuth extends EventEmitter {
+  constructor({ onRedirect }) {
+    super();
+    this.onRedirect = onRedirect;
+
+    this.createSubscribes();
+  }
+
+  createSubscribes() {
+    this.on(eventNames.btnRedirectInForm, this.onRedirect);
+  }
+
   createContainer(className) {
     const container = document.createElement("div");
     container.classList.add(className);
@@ -717,7 +848,7 @@ class ElementsForAuth {
     return h1;
   }
 
-  createForm() {
+  createForm({ textContentForRedirectBtn, route }) {
     const form = document.createElement("form");
     form.classList.add("authForm");
 
@@ -735,91 +866,28 @@ class ElementsForAuth {
     inputPassword.setAttribute("placeholder", "Enter password");
     inputPassword.classList.add("input");
 
-    const btn = document.createElement("button");
-    btn.setAttribute("type", "submit");
-    btn.classList.add("authButton");
-    btn.textContent = "send";
+    const submitBtn = document.createElement("button");
+    submitBtn.setAttribute("type", "submit");
+    submitBtn.classList.add("authButton");
+    submitBtn.textContent = "Submit";
+
+    const redirectBtn = document.createElement("button");
+    redirectBtn.setAttribute("type", "button");
+    redirectBtn.classList.add("authButton");
+    redirectBtn.dataset.route = route;
+    redirectBtn.textContent = textContentForRedirectBtn;
+    redirectBtn.addEventListener("click", (e) =>
+      this.emit(eventNames.btnRedirectInForm, e)
+    );
 
     form.appendChild(inputLogin);
     form.appendChild(inputPassword);
-    form.appendChild(btn);
+    form.appendChild(submitBtn);
+    form.appendChild(redirectBtn);
 
     return form;
   }
 }
 
-class RegistrationPage {
-  elements = null;
-  constructor(rootRef) {
-    this.rootElement = rootRef;
-
-    const elemenstInit = new ElementsForAuth();
-    this.elements = {
-      container: elemenstInit.createContainer("container"),
-      title: elemenstInit.createTitle("log up"),
-      form: elemenstInit.createForm(),
-    };
-  }
-
-  start() {
-    this.createMarcup();
-    this.submit();
-  }
-
-  createMarcup() {
-    const { container, title, form } = this.elements;
-
-    container.appendChild(title);
-    container.appendChild(form);
-    this.rootElement.appendChild(container);
-  }
-
-  submit() {
-    const { form } = this.elements;
-    form.addEventListener("submit", (e) => {
-      e.preventDefault();
-      console.log(e);
-    });
-  }
-}
-
-const registrationPage = new RegistrationPage(document.getElementById("root"));
-registrationPage.start();
-
-class LoginPage {
-  elements = null;
-  constructor(rootRef) {
-    this.rootElement = rootRef;
-
-    const elemenstInit = new ElementsForAuth();
-    this.elements = {
-      container: elemenstInit.createContainer("container"),
-      title: elemenstInit.createTitle("log in"),
-      form: elemenstInit.createForm(),
-    };
-  }
-
-  start() {
-    this.createMarcup();
-    this.submit();
-  }
-
-  createMarcup() {
-    const { container, title, form } = this.elements;
-
-    container.appendChild(title);
-    container.appendChild(form);
-    this.rootElement.appendChild(container);
-  }
-
-  submit() {
-    const { form } = this.elements;
-    form.addEventListener("submit", (e) => {
-      e.preventDefault();
-      console.log(e);
-    });
-  }
-}
-
-const login = new LoginPage(document.getElementById("root"));
-// login.start();
+const app = new App(document.getElementById("root"));
+app.routing();
