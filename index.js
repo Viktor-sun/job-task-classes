@@ -68,9 +68,21 @@ const filtrationReducer = (state = "all", { type, payload }) => {
   }
 };
 
+const usersReducer = (state = {}, { type, payload }) => {
+  switch (type) {
+    case "CREATE_USER":
+      return payload;
+    case "LOGIN_USER":
+      return payload;
+    default:
+      return state;
+  }
+};
+
 const reducer = combineReducers({
   todos: todosReducer,
   filtration: filtrationReducer,
+  user: usersReducer,
 });
 const store = createStore(reducer, {});
 
@@ -90,7 +102,7 @@ const callApi = (path, options) => {
   return fetch(`${url}${path}`, { ...defaultOptions, ...options })
     .then((r) => r.json())
     .then((d) => {
-      if (d.code < 200 && d.code > 399) {
+      if (d.code < 200 || d.code > 399) {
         return Promise.reject(d);
       }
       return d;
@@ -110,6 +122,8 @@ const eventNames = {
   blur: "blur",
   keyDown: "keyDown",
   btnRedirectInForm: "btnRedirectInForm",
+  submitRegistration: "submitRegistration",
+  submitAuthorization: "submitAuthorization",
 };
 
 const routes = {
@@ -172,9 +186,11 @@ class App {
 
     this.registrationPage = new RegistrationPage(rootRef, {
       onRedirect: this.onRedirect,
+      onRegistration: this.onRegistration,
     });
     this.loginPage = new LoginPage(rootRef, {
       onRedirect: this.onRedirect,
+      onAuthorization: this.onAuthorization,
     });
 
     window.addEventListener("popstate", () => this.routing());
@@ -182,16 +198,16 @@ class App {
   }
 
   start() {
-    this.routing();
-  }
-
-  go() {
-    this.createMainMarcup();
     store.subscribe(() => {
       this.store = store.getState();
       console.log(this.store);
     });
     this.fillStore();
+    this.routing();
+  }
+
+  go() {
+    this.createMainMarcup();
   }
 
   fillStore() {
@@ -206,15 +222,15 @@ class App {
 
   onSubmit = (e) => {
     e.preventDefault();
-    const todo = e.target.input.value.trim();
+    const todo = e.currentTarget.elements.input.value.trim();
     if (todo === "") return;
 
     callApi("/todos", {
       method: "POST",
-      body: { id: getRandomId(), todo: todo, completed: false },
+      body: { todo: todo, completed: false },
     })
-      .then(({ todos }) => {
-        store.dispatch({ type: "ADD", payload: todos });
+      .then((data) => {
+        store.dispatch({ type: "ADD", payload: data });
         this.render();
       })
       .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
@@ -300,7 +316,47 @@ class App {
     }
   };
 
-  onAuthorization = () => {};
+  onRegistration = (e) => {
+    e.preventDefault();
+    const credentials = {
+      name: e.currentTarget.elements.login.value,
+      password: e.currentTarget.elements.password.value,
+    };
+
+    callApi("/users/signup", {
+      method: "POST",
+      body: credentials,
+    })
+      .then(({ user }) => {
+        store.dispatch({ type: "CREATE_USER", payload: user });
+        history.pushState(null, null, routes.login);
+        this.routing();
+      })
+      .catch((err) => alert(`Oops... ${err.message}!`));
+
+    e.currentTarget.reset();
+  };
+
+  onAuthorization = (e) => {
+    e.preventDefault();
+    const credentials = {
+      name: e.currentTarget.elements.login.value,
+      password: e.currentTarget.elements.password.value,
+    };
+
+    callApi("/users/login", {
+      method: "POST",
+      body: credentials,
+    })
+      .then(({ user }) => {
+        store.dispatch({ type: "LOGIN_USER", payload: user });
+        history.pushState(null, null, routes.todos);
+        this.routing();
+      })
+      .catch((err) => alert(`Oops... ${err.message}!`));
+
+    e.currentTarget.reset();
+  };
 
   onRedirect = (e) => {
     const route = e.target.dataset.route;
@@ -311,13 +367,11 @@ class App {
   deleteTodo(e) {
     const liIndex = e.target.dataset.index;
     callApi(`/todos?todoId=${liIndex}`, { method: "DELETE" })
-      .then(({ todos }) => {
-        store.dispatch({ type: "DELETE", payload: todos });
+      .then((data) => {
+        store.dispatch({ type: "DELETE", payload: data });
         this.render();
       })
-      .catch((err) => {
-        this.showErrorNotice(`Oops... ${err.message}!`);
-      });
+      .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
   }
 
   updateTodo(e) {
@@ -415,9 +469,9 @@ class App {
 
   showErrorNotice(text) {
     const { errorNotice } = this.elements;
-    errorNotice.classList.add("visible");
+    errorNotice.classList.remove("hidden");
     text ? (errorNotice.textContent = text) : errorNotice.textContent;
-    setTimeout(() => errorNotice.classList.remove("visible"), 5000);
+    setTimeout(() => errorNotice.classList.add("hidden"), 5000);
   }
 
   showFooterAndBtnSelectAll() {
@@ -487,23 +541,23 @@ class App {
 
   routing() {
     const location = window.location.pathname;
-
-    switch (location) {
-      case routes.todos:
+    switch (true) {
+      case location === routes.todos && this.store.user.isVerified:
         this.rootElement.innerHTML = "";
         this.go();
         break;
-      case routes.logup:
+      case location === routes.logup && !this.store.user.isVerified:
         this.rootElement.innerHTML = "";
         this.registrationPage.go();
         break;
-      case routes.login:
+      case location === routes.login && !this.store.user.isVerified:
         this.rootElement.innerHTML = "";
         this.loginPage.go();
         break;
 
       default:
-        this.registrationPage.go();
+        history.pushState(null, null, routes.login);
+        this.routing();
         break;
     }
   }
@@ -607,7 +661,7 @@ class Todos extends EventEmitter {
 
   getTodoList() {
     const todos = this.getTodos();
-    const arrElements = todos.map(({ id, todo, completed }) =>
+    const arrElements = todos.map(({ _id: id, todo, completed }) =>
       this.createTodoItem({ id, todo, completed })
     );
     const ul = this.createTodoList();
@@ -748,14 +802,16 @@ class Elements extends EventEmitter {
   createErrorNotice(message) {
     const notice = document.createElement("div");
     notice.classList.add("error");
+    notice.classList.add("hidden");
     notice.textContent = message;
     return notice;
   }
 }
 
-class RegistrationPage {
+class RegistrationPage extends EventEmitter {
   elements = null;
   constructor(rootRef, handlers) {
+    super();
     this.rootElement = rootRef;
 
     const elemenstInit = new ElementsForAuth(handlers);
@@ -776,21 +832,16 @@ class RegistrationPage {
   createMarcup() {
     const { container, title, form } = this.elements;
 
-    form.addEventListener("submit", this.onSubmit);
     container.appendChild(title);
     container.appendChild(form);
     this.rootElement.appendChild(container);
   }
-
-  onSubmit = (e) => {
-    e.preventDefault();
-    console.log(e);
-  };
 }
 
-class LoginPage {
+class LoginPage extends EventEmitter {
   elements = null;
   constructor(rootRef, handlers) {
+    super();
     this.rootElement = rootRef;
 
     const elemenstInit = new ElementsForAuth(handlers);
@@ -811,28 +862,19 @@ class LoginPage {
   createMarcup() {
     const { container, title, form } = this.elements;
 
-    form.addEventListener("submit", this.onSubmit);
     container.appendChild(title);
     container.appendChild(form);
     this.rootElement.appendChild(container);
   }
-
-  onSubmit = (e) => {
-    e.preventDefault();
-    console.log(e);
-  };
 }
 
 class ElementsForAuth extends EventEmitter {
-  constructor({ onRedirect }) {
+  constructor({ onRedirect, onRegistration, onAuthorization }) {
     super();
-    this.onRedirect = onRedirect;
 
-    this.createSubscribes();
-  }
-
-  createSubscribes() {
-    this.on(eventNames.btnRedirectInForm, this.onRedirect);
+    this.on(eventNames.btnRedirectInForm, onRedirect);
+    this.on(eventNames.submitRegistration, onRegistration);
+    this.on(eventNames.submitAuthorization, onAuthorization);
   }
 
   createContainer(className) {
@@ -851,6 +893,13 @@ class ElementsForAuth extends EventEmitter {
   createForm({ textContentForRedirectBtn, route }) {
     const form = document.createElement("form");
     form.classList.add("authForm");
+    form.addEventListener("submit", (e) => {
+      if (route !== routes.logup) {
+        this.emit(eventNames.submitRegistration, e);
+        return;
+      }
+      this.emit(eventNames.submitAuthorization, e);
+    });
 
     const inputLogin = document.createElement("input");
     inputLogin.setAttribute("type", "text");
@@ -890,4 +939,4 @@ class ElementsForAuth extends EventEmitter {
 }
 
 const app = new App(document.getElementById("root"));
-app.routing();
+app.start();
