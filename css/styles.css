@@ -318,6 +318,22 @@ body {
 
 .btnLogout {
   position: absolute;
-  top: 132px;
-  left: 61%;
+  top: 120px;
+  left: 62%;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  transition: transform 250ms ease;
+}
+
+.btnLogout::after {
+  content: "";
+  display: block;
+  width: 30px;
+  height: 30px;
+  background-image: url("../assets/svg/logout-svgrepo-com.svg");
+}
+
+.btnLogout:hover {
+  transform: scale(1.2);
 }

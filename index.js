@@ -890,7 +890,7 @@ class Elements extends EventEmitter {
   createBtnLogout() {
     const btn = document.createElement("button");
     btn.classList.add("btnLogout");
-    btn.textContent = "Logout";
+    // btn.textContent = "Logout";
     btn.addEventListener("click", () => this.emit(eventNames.btnLogout));
     return btn;
   }
