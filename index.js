@@ -1,5 +1,3 @@
-const getRandomId = () => Math.floor(Math.random() * Date.now());
-
 // Redux==========================================
 const createStore = (reducer, initialState) => {
   let state = initialState;
@@ -28,17 +26,34 @@ const todosReducer = (state = [], { type, payload }) => {
     case "FETCH_TODOS":
       return payload;
     case "ADD":
-      return payload;
+      return [...state, payload];
     case "DELETE":
-      return payload;
+      return state.filter((todo) => todo._id !== payload._id);
     case "UPDATE":
-      return payload;
+      const idx = state.findIndex((todo) => todo._id === payload._id);
+      const newState = [...state];
+      newState[idx];
+      newState[idx].todo = payload.todo;
+      return newState;
     case "SELECT":
-      return payload;
+      const index = state.findIndex((todo) => todo._id === payload._id);
+      const nextState = [...state];
+      nextState[index].completed = payload.completed;
+      return nextState;
     case "SELECT_ALL":
-      return payload;
+      return state.reduce((acc, todo) => {
+        todo.completed = true;
+        acc.push(todo);
+        return acc;
+      }, []);
+    case "UNSELECT_ALL":
+      return state.reduce((acc, todo) => {
+        todo.completed = false;
+        acc.push(todo);
+        return acc;
+      }, []);
     case "CLEAR_COMPLETED":
-      return payload;
+      return state.filter((todo) => !todo.completed);
     default:
       return state;
   }
@@ -191,6 +206,7 @@ class App {
         "Oops..! Something went wrong"
       ),
       logout: elemenstInit.createBtnLogout(),
+      helloTitle: elemenstInit.createHelloTitle(),
     };
 
     this.registrationPage = new RegistrationPage(rootRef, {
@@ -202,30 +218,24 @@ class App {
       onAuthorization: this.onAuthorization,
     });
 
-    window.addEventListener("load", () => this.fillStore());
+    window.addEventListener("load", () => this.refreshUser());
     window.addEventListener("popstate", () => this.routing());
   }
 
   start() {
     store.subscribe(() => {
       this.store = store.getState();
-      console.log(this.store);
+      console.log("state", this.store);
     });
   }
 
   go() {
     this.createMainMarcup();
+    store.dispatch({ type: "GET_FILTRATION" });
+    this.fetchTodos();
   }
 
-  fillStore() {
-    store.dispatch({ type: "GET_FILTRATION" });
-    // callApi("/todos")
-    //   .then(({ todos }) => {
-    //     store.dispatch({ type: "FETCH_TODOS", payload: todos });
-    //     this.render();
-    //   })
-    //   .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
-
+  refreshUser() {
     const userId = localStorage.getItem("userId");
     if (!userId) {
       store.dispatch({
@@ -250,6 +260,15 @@ class App {
       .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
   }
 
+  fetchTodos() {
+    callApi(`/todos?userId=${this.store.user._id}`)
+      .then((data) => {
+        store.dispatch({ type: "FETCH_TODOS", payload: data.todos });
+        this.render();
+      })
+      .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
+  }
+
   onSubmit = (e) => {
     e.preventDefault();
     const todo = e.currentTarget.elements.input.value.trim();
@@ -257,10 +276,10 @@ class App {
 
     callApi("/todos", {
       method: "POST",
-      body: { todo: todo, completed: false },
+      body: { todo: todo, owner: this.store.user._id },
     })
       .then((data) => {
-        store.dispatch({ type: "ADD", payload: data });
+        store.dispatch({ type: "ADD", payload: data.todo });
         this.render();
       })
       .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
@@ -274,13 +293,14 @@ class App {
 
   onSelect = (e) => {
     const checkboxIndex = e.target.dataset.index;
-    const isChecked = e.target;
+    const isChecked = e.target.checked;
+
     callApi(`/todos?todoId=${checkboxIndex}`, {
       method: "PATCH",
-      body: { select: isChecked },
+      body: { select: isChecked, owner: this.store.user._id },
     })
-      .then(({ todos }) => {
-        store.dispatch({ type: "SELECT", payload: todos });
+      .then((data) => {
+        store.dispatch({ type: "SELECT", payload: data.todo });
         this.render();
       })
       .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
@@ -288,20 +308,25 @@ class App {
 
   onSelectAll = () => {
     const isAllCompleted = this.store.todos.every(({ completed }) => completed);
-
     if (isAllCompleted) {
-      callApi("/todos/unselect.all", { method: "POST" })
-        .then(({ todos }) => {
-          store.dispatch({ type: "SELECT_ALL", payload: todos });
+      callApi("/todos/unselect.all", {
+        method: "POST",
+        body: { owner: this.store.user._id },
+      })
+        .then(() => {
+          store.dispatch({ type: "UNSELECT_ALL" });
           this.render();
         })
         .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
 
       return;
     }
-    callApi("/todos/select.all", { method: "POST" })
-      .then(({ todos }) => {
-        store.dispatch({ type: "SELECT_ALL", payload: todos });
+    callApi("/todos/select.all", {
+      method: "POST",
+      body: { owner: this.store.user._id },
+    })
+      .then(() => {
+        store.dispatch({ type: "SELECT_ALL" });
         this.render();
       })
       .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
@@ -323,9 +348,12 @@ class App {
   };
 
   onClearCompleted = () => {
-    callApi("/todos/clear.completed", { method: "POST" })
-      .then(({ todos }) => {
-        store.dispatch({ type: "CLEAR_COMPLETED", payload: todos });
+    callApi("/todos/clear.completed", {
+      method: "POST",
+      body: { owner: this.store.user._id },
+    })
+      .then(() => {
+        store.dispatch({ type: "CLEAR_COMPLETED" });
         this.render();
       })
       .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
@@ -411,9 +439,12 @@ class App {
 
   deleteTodo(e) {
     const liIndex = e.target.dataset.index;
-    callApi(`/todos?todoId=${liIndex}`, { method: "DELETE" })
+    callApi(`/todos?todoId=${liIndex}`, {
+      method: "DELETE",
+      body: { owner: this.store.user._id },
+    })
       .then((data) => {
-        store.dispatch({ type: "DELETE", payload: data });
+        store.dispatch({ type: "DELETE", payload: data.todo });
         this.render();
       })
       .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
@@ -430,10 +461,10 @@ class App {
 
     callApi(`/todos?todoId=${index}`, {
       method: "PATCH",
-      body: { updatedTodo: newTodo },
+      body: { updatedTodo: newTodo, owner: this.store.user._id },
     })
-      .then(({ todos }) => {
-        store.dispatch({ type: "UPDATE", payload: todos });
+      .then((data) => {
+        store.dispatch({ type: "UPDATE", payload: data.todo });
         this.render();
       })
       .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
@@ -543,6 +574,7 @@ class App {
       footer,
       errorNotice,
       logout,
+      helloTitle,
     } = this.elements;
 
     footer.appendChild(counterUnfulfilledTodo);
@@ -552,7 +584,9 @@ class App {
     form.insertAdjacentElement("beforeend", todoContainer);
     form.appendChild(footer);
 
+    helloTitle.textContent = `Hello ${this.store.user.name}`;
     container.appendChild(title);
+    container.appendChild(helloTitle);
     container.appendChild(logout);
     container.appendChild(form);
     container.appendChild(errorNotice);
@@ -560,7 +594,7 @@ class App {
     this.rootElement.appendChild(container);
   }
 
-  updateMarkup() {
+  render() {
     const todosList = new Todos(
       {
         onDelete: this.onDelete,
@@ -580,10 +614,6 @@ class App {
     this.showBtnClear();
     this.showActiveBtnOnSort();
     this.showFooterAndBtnSelectAll();
-  }
-
-  render() {
-    this.updateMarkup();
   }
 
   routing() {
@@ -863,6 +893,13 @@ class Elements extends EventEmitter {
     btn.textContent = "Logout";
     btn.addEventListener("click", () => this.emit(eventNames.btnLogout));
     return btn;
+  }
+
+  createHelloTitle() {
+    const title = document.createElement("h2");
+    title.classList.add("titleHello");
+    title.textContent = "Hello";
+    return title;
   }
 }
 

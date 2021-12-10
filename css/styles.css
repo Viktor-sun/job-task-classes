@@ -311,3 +311,13 @@ body {
 .authButton:hover {
   background-color: rgba(175, 47, 47, 0.3);
 }
+
+.titleHello {
+  color: #59db50;
+}
+
+.btnLogout {
+  position: absolute;
+  top: 132px;
+  left: 61%;
+}
