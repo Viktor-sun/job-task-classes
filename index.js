@@ -73,7 +73,13 @@ const usersReducer = (state = {}, { type, payload }) => {
     case "CREATE_USER":
       return payload;
     case "LOGIN_USER":
+      localStorage.setItem("userId", payload._id);
       return payload;
+    case "CURRENT_USER":
+      return payload;
+    case "LOGOUT_USER":
+      localStorage.removeItem("userId");
+      return {};
     default:
       return state;
   }
@@ -124,6 +130,7 @@ const eventNames = {
   btnRedirectInForm: "btnRedirectInForm",
   submitRegistration: "submitRegistration",
   submitAuthorization: "submitAuthorization",
+  btnLogout: "btnLogout",
 };
 
 const routes = {
@@ -168,6 +175,7 @@ class App {
       onButtonSelectAll: this.onButtonSelectAll,
       onButtonSelectActive: this.onButtonSelectActive,
       onButtonSelectCompleted: this.onButtonSelectCompleted,
+      onBtnLogout: this.onBtnLogout,
     });
 
     this.elements = {
@@ -182,6 +190,7 @@ class App {
       errorNotice: elemenstInit.createErrorNotice(
         "Oops..! Something went wrong"
       ),
+      logout: elemenstInit.createBtnLogout(),
     };
 
     this.registrationPage = new RegistrationPage(rootRef, {
@@ -193,8 +202,8 @@ class App {
       onAuthorization: this.onAuthorization,
     });
 
+    window.addEventListener("load", () => this.fillStore());
     window.addEventListener("popstate", () => this.routing());
-    window.addEventListener("load", () => this.routing());
   }
 
   start() {
@@ -202,8 +211,6 @@ class App {
       this.store = store.getState();
       console.log(this.store);
     });
-    this.fillStore();
-    this.routing();
   }
 
   go() {
@@ -212,10 +219,33 @@ class App {
 
   fillStore() {
     store.dispatch({ type: "GET_FILTRATION" });
-    callApi("/todos")
-      .then(({ todos }) => {
-        store.dispatch({ type: "FETCH_TODOS", payload: todos });
-        this.render();
+    // callApi("/todos")
+    //   .then(({ todos }) => {
+    //     store.dispatch({ type: "FETCH_TODOS", payload: todos });
+    //     this.render();
+    //   })
+    //   .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
+
+    const userId = localStorage.getItem("userId");
+    if (!userId) {
+      store.dispatch({
+        type: "CURRENT_USER",
+        payload: { user: { isVerified: false } },
+      });
+      this.routing();
+      return;
+    }
+    callApi("/users/current", {
+      method: "POST",
+      body: { _id: userId },
+    })
+      .then((data) => {
+        store.dispatch({
+          type: "CURRENT_USER",
+          payload: data.user,
+        });
+        data.user.isVerified && history.pushState(null, null, routes.todos);
+        this.routing();
       })
       .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
   }
@@ -319,7 +349,7 @@ class App {
   onRegistration = (e) => {
     e.preventDefault();
     const credentials = {
-      name: e.currentTarget.elements.login.value,
+      name: e.currentTarget.elements.login.value.trim(),
       password: e.currentTarget.elements.password.value,
     };
 
@@ -332,7 +362,7 @@ class App {
         history.pushState(null, null, routes.login);
         this.routing();
       })
-      .catch((err) => alert(`Oops... ${err.message}!`));
+      .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
 
     e.currentTarget.reset();
   };
@@ -340,7 +370,7 @@ class App {
   onAuthorization = (e) => {
     e.preventDefault();
     const credentials = {
-      name: e.currentTarget.elements.login.value,
+      name: e.currentTarget.elements.login.value.trim(),
       password: e.currentTarget.elements.password.value,
     };
 
@@ -353,7 +383,7 @@ class App {
         history.pushState(null, null, routes.todos);
         this.routing();
       })
-      .catch((err) => alert(`Oops... ${err.message}!`));
+      .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
 
     e.currentTarget.reset();
   };
@@ -362,6 +392,21 @@ class App {
     const route = e.target.dataset.route;
     history.pushState(null, null, route);
     this.routing();
+  };
+
+  onBtnLogout = () => {
+    callApi("/users/logout", {
+      method: "POST",
+      body: {
+        _id: this.store.user._id,
+      },
+    })
+      .then(() => {
+        store.dispatch({ type: "LOGOUT_USER" });
+        history.pushState(null, null, routes.login);
+        this.routing();
+      })
+      .catch((err) => this.showErrorNotice(`Oops... ${err.message}!`));
   };
 
   deleteTodo(e) {
@@ -468,7 +513,7 @@ class App {
   }
 
   showErrorNotice(text) {
-    const { errorNotice } = this.elements;
+    const errorNotice = document.querySelector(".error");
     errorNotice.classList.remove("hidden");
     text ? (errorNotice.textContent = text) : errorNotice.textContent;
     setTimeout(() => errorNotice.classList.add("hidden"), 5000);
@@ -497,6 +542,7 @@ class App {
       sortButtonList,
       footer,
       errorNotice,
+      logout,
     } = this.elements;
 
     footer.appendChild(counterUnfulfilledTodo);
@@ -507,6 +553,7 @@ class App {
     form.appendChild(footer);
 
     container.appendChild(title);
+    container.appendChild(logout);
     container.appendChild(form);
     container.appendChild(errorNotice);
 
@@ -678,6 +725,7 @@ class Elements extends EventEmitter {
     onButtonSelectAll,
     onButtonSelectActive,
     onButtonSelectCompleted,
+    onBtnLogout,
   }) {
     super();
 
@@ -687,6 +735,7 @@ class Elements extends EventEmitter {
     this.onAll = onButtonSelectAll;
     this.onActive = onButtonSelectActive;
     this.onCompleted = onButtonSelectCompleted;
+    this.onBtnLogout = onBtnLogout;
 
     this.createSubscribes();
   }
@@ -698,6 +747,7 @@ class Elements extends EventEmitter {
     this.on(eventNames.btnSelectAll, this.onAll);
     this.on(eventNames.btnSelectActive, this.onActive);
     this.on(eventNames.btnSelectCompleted, this.onCompleted);
+    this.on(eventNames.btnLogout, this.onBtnLogout);
   }
 
   createContainer(className) {
@@ -806,6 +856,14 @@ class Elements extends EventEmitter {
     notice.textContent = message;
     return notice;
   }
+
+  createBtnLogout() {
+    const btn = document.createElement("button");
+    btn.classList.add("btnLogout");
+    btn.textContent = "Logout";
+    btn.addEventListener("click", () => this.emit(eventNames.btnLogout));
+    return btn;
+  }
 }
 
 class RegistrationPage extends EventEmitter {
@@ -822,6 +880,9 @@ class RegistrationPage extends EventEmitter {
         textContentForRedirectBtn: "Log In",
         route: routes.login,
       }),
+      errorNotice: elemenstInit.createErrorNotice(
+        ' "Oops..! Something went wrong"'
+      ),
     };
   }
 
@@ -830,10 +891,11 @@ class RegistrationPage extends EventEmitter {
   }
 
   createMarcup() {
-    const { container, title, form } = this.elements;
+    const { container, title, form, errorNotice } = this.elements;
 
     container.appendChild(title);
     container.appendChild(form);
+    container.appendChild(errorNotice);
     this.rootElement.appendChild(container);
   }
 }
@@ -852,6 +914,9 @@ class LoginPage extends EventEmitter {
         textContentForRedirectBtn: "Log Up",
         route: routes.logup,
       }),
+      errorNotice: elemenstInit.createErrorNotice(
+        ' "Oops..! Something went wrong"'
+      ),
     };
   }
 
@@ -860,10 +925,11 @@ class LoginPage extends EventEmitter {
   }
 
   createMarcup() {
-    const { container, title, form } = this.elements;
+    const { container, title, form, errorNotice } = this.elements;
 
     container.appendChild(title);
     container.appendChild(form);
+    container.appendChild(errorNotice);
     this.rootElement.appendChild(container);
   }
 }
@@ -935,6 +1001,14 @@ class ElementsForAuth extends EventEmitter {
     form.appendChild(redirectBtn);
 
     return form;
+  }
+
+  createErrorNotice(message) {
+    const notice = document.createElement("div");
+    notice.classList.add("error");
+    notice.classList.add("hidden");
+    notice.textContent = message;
+    return notice;
   }
 }
 
